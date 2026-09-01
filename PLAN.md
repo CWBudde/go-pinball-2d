@@ -6,6 +6,8 @@ Build a single-player, portrait-oriented pinball table with the working title
 "Neon Relay":
 
 - Two controllable flippers
+- Flipper sprites preserve their authored aspect ratio while their pivot and tip
+  remain aligned with the physics capsule
 - Spring-loaded launch plunger and shooter lane
 - Three pop bumpers
 - Two slingshots

@@ -26,7 +26,14 @@ var requiredImages = []string{
 	"assets/images/particle.png",
 }
 
-const tableOutlineWidth = 3
+const (
+	tableOutlineWidth       = 3
+	flipperAssetWidth       = 180.0
+	flipperAssetHeight      = 64.0
+	flipperAssetPivotX      = 30.0
+	flipperAssetTipX        = 148.0
+	flipperAssetAnchorWidth = flipperAssetTipX - flipperAssetPivotX
+)
 
 var (
 	ink     = draw.RGB(.02, .03, .09)
@@ -165,7 +172,8 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 	for _, flipper := range current.World.Flippers {
 		midpoint := flipper.Pivot.Add(flipper.Tip()).Mul(.5)
 		angle := int(math.Round(flipper.Angle * 180 / math.Pi))
-		r.spriteCentered(window, "assets/images/flipper.png", view, midpoint, flipper.Length+flipper.Radius*2, flipper.Radius*4, angle)
+		scale := flipper.Length / flipperAssetAnchorWidth
+		r.spriteCentered(window, "assets/images/flipper.png", view, midpoint, flipperAssetWidth*scale, flipperAssetHeight*scale, angle)
 	}
 
 	plungerY := definition.Plunger.Position.Y - 52 + current.PlungerCharge*22
