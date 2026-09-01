@@ -380,34 +380,34 @@ read; the game hardcodes `table.BumperScore` and friends and dispatches on
 `strings.HasPrefix(id, "bumper_")`. An ID typo produces a silently inert,
 scoreless feature, and no validation exists anywhere.
 
-- [ ] Give colliders and sensors a `Kind` field (or expose a
+- [x] Give colliders and sensors a `Kind` field (or expose a
       `map[string]Feature`), look up the score by ID, and delete the prefix
       matching. This makes the existing `Score` fields load-bearing.
-- [ ] Add a table test asserting every collider and sensor ID resolves to a
+- [x] Add a table test asserting every collider and sensor ID resolves to a
       known feature kind.
-- [ ] Implement or remove the four inlane/outlane sensors
+- [x] Implement or remove the four inlane/outlane sensors
       (`table.go:204-211`): they match no prefix in `stepPlaying`, so they can
       never fire, yet they run an `Overlaps` call at 240 Hz.
-- [ ] Resolve `Ball.Mass` (`physics/body.go:14`): it scales only the _reported_
+- [x] Resolve `Ball.Mass` (`physics/body.go:14`): it scales only the _reported_
       `Contact.Impulse` and has no effect on the dynamics, while `Guard`
       carefully repairs it. Either divide by it in `ResolveStaticContact` or
       delete it and document the ball as unit-mass.
-- [ ] Replace the `g.World.Lines = g.World.Lines[:0]` reach-in
+- [x] Replace the `g.World.Lines = g.World.Lines[:0]` reach-in
       (`game.go:302-310`) with a `World.SetLines` method or an `Enabled` flag
       on `LineCollider`.
-- [ ] Build slingshot colliders from all three triangle edges; the renderer
+- [x] Build slingshot colliders from all three triangle edges; the renderer
       draws three but only the upper face is solid, and the lower edge
       overlaps `guide_left_inlane`.
-- [ ] Separate the flipper posts from the flipper capsules - `post_left_flipper`
+- [x] Separate the flipper posts from the flipper capsules - `post_left_flipper`
       sits 22.4 units from a pivot with a combined radius of 27, i.e. embedded
       in the flipper body.
-- [ ] Delete the unused exported API: `Vec.Cross`, `Segment.Length`,
+- [x] Delete the unused exported API: `Vec.Cross`, `Segment.Length`,
       `Clock.Reset`, `Clock.Alpha`, `CircleSensor`, `OverlappingSensors`,
       `DefaultSolverIterations`, and `Contact.SurfaceVelocity`/`Flipper`.
-- [ ] Emit `BallDrained` before `BonusAwarded` (`game.go:271,276`); consumers
+- [x] Emit `BallDrained` before `BonusAwarded` (`game.go:271,276`); consumers
       play the effects in order, so the bonus fanfare currently precedes the
       drain sound.
-- [ ] Give `Loading` a timeout fallback so a missing asset cannot strand the
+- [x] Give `Loading` a timeout fallback so a missing asset cannot strand the
       game in a state with no recovery.
 
 ### 11.4 Phase D - tests, tooling, and performance
