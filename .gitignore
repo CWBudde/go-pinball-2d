@@ -1,0 +1,8 @@
+/dist/
+/.web-build/
+main.wasm
+wasm_exec.js
+/.gocache/
+/.tmp/
+*.test
+*.out

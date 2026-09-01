@@ -9,6 +9,7 @@ Build a single-player, portrait-oriented pinball table with the working title
 - Spring-loaded launch plunger and shooter lane
 - Three pop bumpers
 - Two slingshots
+- Clearly visible, thick outlines for both triangular slingshots
 - Inlanes, outlanes, rollover lanes, targets, walls, posts, and drain
 - Three balls per game
 - Score, bonus multiplier, high score, pause, ball-lost, and game-over states
@@ -31,8 +32,12 @@ Create a Go module using Go 1.27 and pin `github.com/gonutz/prototype` to
 Planned layout:
 
 ```text
+README.md
 main.go
 index.html
+justfile
+.golangci.toml
+treefmt.toml
 internal/
   game/          game states, scoring, balls, event queue
   physics/       vectors, colliders, solver, flippers
@@ -55,6 +60,17 @@ dist/            ignored build output
 
 Keep physics and game rules independent of `prototype/draw`, allowing native
 unit tests without desktop graphics dependencies.
+
+Add repository-wide Go quality tooling, following the conventions used by the
+nearby `libs/algo-fft` project where applicable:
+
+- A `justfile` is the canonical entry point for formatting, linting, testing,
+  asset generation/freshness checks, the WASM build, and the full CI gate.
+- Formatting rules cover all tracked Go source with `gofmt` and reject a dirty
+  tree after formatting in CI.
+- A versioned `.golangci.toml` enables an explicit, maintainable linter set and
+  keeps generated assets and browser-only adapters scoped appropriately.
+- CI invokes the same `just` recipes developers run locally.
 
 ## 3. Implement the simulation core
 
@@ -79,6 +95,8 @@ Implement:
   contact resolution
 - Rotating capsule-shaped flippers with angular contact velocity
 - Plunger charge and release impulse
+- Re-arm the plunger when an underpowered launch falls back into the shooter-lane
+  cradle, without consuming the ball
 - Per-contact cooldowns so persistent overlaps do not score every simulation
   step
 - Guards against NaN values and runaway energy
@@ -197,6 +215,8 @@ Automated tests:
 - Asset-generation freshness
 - Successful `js/wasm` production build
 - Validation that every HTML and game asset reference exists in `dist`
+- `just fmt-check` and `just lint` pass with the repository's pinned
+  formatting and golangci-lint rules
 
 Manual browser checks:
 
@@ -205,6 +225,7 @@ Manual browser checks:
 - Fresh-cache load from the final Pages URL
 - Audio activation after the first key press
 - Complete start -> launch -> score -> drain -> game-over -> restart loop
+- Underpowered launch -> shooter-lane return -> recharge -> successful relaunch
 - Fullscreen, pause/resume, and tab-background recovery
 
 ## 9. Deploy through GitHub Pages

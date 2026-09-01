@@ -1,0 +1,49 @@
+version = "2"
+
+[run]
+timeout = "5m"
+allow-parallel-runners = true
+go = "1.27"
+
+[linters]
+default = "none"
+enable = [
+    "errorlint",
+    "errcheck",
+    "gocritic",
+    "govet",
+    "ineffassign",
+    "misspell",
+    "revive",
+    "staticcheck",
+    "unconvert",
+    "unused",
+    "whitespace",
+]
+
+[linters.settings.revive]
+[[linters.settings.revive.rules]]
+name = "var-naming"
+disabled = true
+
+[linters.exclusions]
+generated = "lax"
+presets = ["comments", "common-false-positives", "legacy", "std-error-handling"]
+paths = ["dist$"]
+
+[[linters.exclusions.rules]]
+linters = ["revive"]
+path = "^(internal|cmd)/"
+text = "^exported:"
+
+[[linters.exclusions.rules]]
+linters = ["gocritic"]
+path = ".*_test\\.go"
+text = "unnamedResult"
+
+[formatters]
+enable = ["gofumpt", "goimports"]
+
+[formatters.exclusions]
+generated = "lax"
+paths = ["dist$"]
