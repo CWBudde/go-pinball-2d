@@ -85,12 +85,32 @@ func TestResolutionRestitutionFrictionAndCorrection(t *testing.T) {
 	ball.Restitution = 0.5
 	ball.Friction = 1
 	impulse := ResolveStaticContact(&ball, V(0, 1), Vec{}, Material{Restitution: 0.5, Friction: 1})
-	if impulse <= 0 || !closeTo(ball.Velocity.Y, 10) || !closeTo(ball.Velocity.X, 0) {
+	if !closeTo(impulse, 30) || !closeTo(ball.Velocity.Y, 10) || !closeTo(ball.Velocity.X, 0) {
 		t.Fatalf("resolved velocity=%+v impulse=%v", ball.Velocity, impulse)
 	}
 	CorrectPenetration(&ball, V(0, 1), 3)
 	if ball.Position.Y <= 3 {
 		t.Fatalf("penetration was not corrected: %+v", ball.Position)
+	}
+}
+
+func TestWorldSetLinesReplacesAndCopiesColliders(t *testing.T) {
+	world := World{Lines: []LineCollider{{ID: "old"}}}
+	lines := []LineCollider{{ID: "left"}, {ID: "right"}}
+
+	world.SetLines(lines)
+	if len(world.Lines) != 2 || world.Lines[0].ID != "left" || world.Lines[1].ID != "right" {
+		t.Fatalf("lines were not replaced: %+v", world.Lines)
+	}
+
+	lines[0].ID = "changed"
+	if world.Lines[0].ID != "left" {
+		t.Fatalf("world retained caller's slice: %+v", world.Lines)
+	}
+
+	world.SetLines(nil)
+	if len(world.Lines) != 0 {
+		t.Fatalf("lines were not cleared: %+v", world.Lines)
 	}
 }
 

@@ -21,6 +21,34 @@ const (
 	DropTargetScore = 500
 )
 
+// FeatureKind describes the rule-facing role of a named table feature. The
+// zero value is intentionally not a valid kind, so missing catalog entries do
+// not silently look like ordinary playfield geometry.
+type FeatureKind string
+
+const (
+	FeatureWall       FeatureKind = "wall"
+	FeatureBumper     FeatureKind = "bumper"
+	FeatureSlingshot  FeatureKind = "slingshot"
+	FeatureRollover   FeatureKind = "rollover"
+	FeatureDropTarget FeatureKind = "drop_target"
+	FeatureInlane     FeatureKind = "inlane"
+	FeatureOutlane    FeatureKind = "outlane"
+	FeaturePost       FeatureKind = "post"
+	FeatureDrain      FeatureKind = "drain"
+	FeatureFlipper    FeatureKind = "flipper"
+	FeaturePlunger    FeatureKind = "plunger"
+)
+
+// Feature is the game-rule metadata for a collider, sensor, or mechanism ID.
+// Score is sourced from the corresponding table definition rather than from a
+// second set of rules in the game package.
+type Feature struct {
+	ID    string
+	Kind  FeatureKind
+	Score int
+}
+
 var (
 	wallMaterial      = physics.Material{Restitution: 0.72, Friction: 0.16}
 	postMaterial      = physics.Material{Restitution: 0.78, Friction: 0.12}
@@ -41,18 +69,29 @@ func (b Bumper) Collider() physics.CircleCollider {
 	return physics.CircleCollider{ID: b.ID, Center: b.Center, Radius: b.Radius, Material: bumperMaterial}
 }
 
-// Slingshot describes the triangular visible rubber and its active collision
-// edge. A game can score it directly from contacts carrying ID.
+// Slingshot describes a triangular visible and physical rubber. A game can
+// score it directly from contacts carrying ID.
 type Slingshot struct {
 	ID       string
 	Triangle [3]physics.Vec
-	Segment  physics.Segment
 	Radius   float64
 	Score    int
 }
 
-func (s Slingshot) Collider() physics.LineCollider {
-	return physics.LineCollider{ID: s.ID, Segment: s.Segment, Radius: s.Radius, Material: slingshotMaterial}
+func (s Slingshot) Colliders() [3]physics.LineCollider {
+	var colliders [3]physics.LineCollider
+	for i := range colliders {
+		colliders[i] = physics.LineCollider{
+			ID: s.ID,
+			Segment: physics.Segment{
+				A: s.Triangle[i],
+				B: s.Triangle[(i+1)%len(s.Triangle)],
+			},
+			Radius:   s.Radius,
+			Material: slingshotMaterial,
+		}
+	}
+	return colliders
 }
 
 // Lane is a named scoring or routing sensor. The Segment and Radius also give
@@ -133,6 +172,10 @@ type Definition struct {
 	BallSpawn physics.Vec
 	Plunger   PlungerDefinition
 	Flippers  []*physics.Flipper
+
+	// Features maps every collider, sensor, and mechanism ID to its rule-facing
+	// metadata. New returns a fresh map for each definition.
+	Features map[string]Feature
 }
 
 // New constructs the standard Neon Relay table.
@@ -147,7 +190,7 @@ func New() *Definition {
 	leftFlipper := physics.NewFlipper("flipper_left", physics.V(220, 925), 105, 16, .31, -.58)
 	rightFlipper := physics.NewFlipper("flipper_right", physics.V(500, 925), 105, 16, math.Pi-.31, math.Pi+.58)
 
-	return &Definition{
+	d := &Definition{
 		OuterWalls: []physics.LineCollider{
 			line("wall_outer_left_upper", 40, 150, 55, 105, 5),
 			line("wall_outer_top_left", 55, 105, 120, 55, 5),
@@ -184,12 +227,10 @@ func New() *Definition {
 			{
 				ID: "slingshot_left", Score: SlingshotScore, Radius: 9,
 				Triangle: [3]physics.Vec{physics.V(145, 710), physics.V(285, 805), physics.V(175, 845)},
-				Segment:  physics.Segment{A: physics.V(145, 710), B: physics.V(285, 805)},
 			},
 			{
 				ID: "slingshot_right", Score: SlingshotScore, Radius: 9,
 				Triangle: [3]physics.Vec{physics.V(575, 710), physics.V(435, 805), physics.V(545, 845)},
-				Segment:  physics.Segment{A: physics.V(575, 710), B: physics.V(435, 805)},
 			},
 		},
 		RolloverLanes: []Lane{
@@ -218,8 +259,8 @@ func New() *Definition {
 			{ID: "post_right_sling", Center: physics.V(565, 705), Radius: 14},
 			{ID: "post_left_inlane", Center: physics.V(285, 815), Radius: 12},
 			{ID: "post_right_inlane", Center: physics.V(435, 815), Radius: 12},
-			{ID: "post_left_flipper", Center: physics.V(210, 905), Radius: 11},
-			{ID: "post_right_flipper", Center: physics.V(510, 905), Radius: 11},
+			{ID: "post_left_flipper", Center: physics.V(200, 900), Radius: 11},
+			{ID: "post_right_flipper", Center: physics.V(520, 900), Radius: 11},
 		},
 		Drain:     Drain{ID: "drain", Min: physics.V(260, 1035), Max: physics.V(510, Height)},
 		BallSpawn: physics.V(655, 985),
@@ -228,6 +269,66 @@ func New() *Definition {
 		},
 		Flippers: []*physics.Flipper{leftFlipper, rightFlipper},
 	}
+	d.Features = d.featureCatalog()
+	return d
+}
+
+// Feature returns the rule-facing metadata for id.
+func (d *Definition) Feature(id string) (Feature, bool) {
+	if d == nil {
+		return Feature{}, false
+	}
+	feature, ok := d.Features[id]
+	return feature, ok
+}
+
+func (d *Definition) featureCatalog() map[string]Feature {
+	features := make(map[string]Feature)
+	add := func(id string, kind FeatureKind, score int) {
+		if id == "" {
+			panic("table: feature has an empty ID")
+		}
+		if _, exists := features[id]; exists {
+			panic("table: duplicate feature ID " + id)
+		}
+		features[id] = Feature{ID: id, Kind: kind, Score: score}
+	}
+	for _, collider := range d.OuterWalls {
+		add(collider.ID, FeatureWall, 0)
+	}
+	for _, collider := range d.ShooterLane {
+		add(collider.ID, FeatureWall, 0)
+	}
+	for _, collider := range d.GuideWalls {
+		add(collider.ID, FeatureWall, 0)
+	}
+	for _, bumper := range d.Bumpers {
+		add(bumper.ID, FeatureBumper, bumper.Score)
+	}
+	for _, slingshot := range d.Slingshots {
+		add(slingshot.ID, FeatureSlingshot, slingshot.Score)
+	}
+	for _, lane := range d.RolloverLanes {
+		add(lane.ID, FeatureRollover, lane.Score)
+	}
+	for _, target := range d.DropTargets {
+		add(target.ID, FeatureDropTarget, target.Score)
+	}
+	for _, lane := range d.Inlanes {
+		add(lane.ID, FeatureInlane, lane.Score)
+	}
+	for _, lane := range d.Outlanes {
+		add(lane.ID, FeatureOutlane, lane.Score)
+	}
+	for _, post := range d.Posts {
+		add(post.ID, FeaturePost, 0)
+	}
+	add(d.Drain.ID, FeatureDrain, 0)
+	for _, flipper := range d.Flippers {
+		add(flipper.ID, FeatureFlipper, 0)
+	}
+	add(d.Plunger.ID, FeaturePlunger, 0)
+	return features
 }
 
 // LineColliders returns all currently active static line surfaces. The returned
@@ -236,13 +337,14 @@ func (d *Definition) LineColliders() []physics.LineCollider {
 	if d == nil {
 		return nil
 	}
-	count := len(d.OuterWalls) + len(d.ShooterLane) + len(d.GuideWalls) + len(d.Slingshots) + len(d.DropTargets)
+	count := len(d.OuterWalls) + len(d.ShooterLane) + len(d.GuideWalls) + 3*len(d.Slingshots) + len(d.DropTargets)
 	lines := make([]physics.LineCollider, 0, count)
 	lines = append(lines, d.OuterWalls...)
 	lines = append(lines, d.ShooterLane...)
 	lines = append(lines, d.GuideWalls...)
 	for _, slingshot := range d.Slingshots {
-		lines = append(lines, slingshot.Collider())
+		colliders := slingshot.Colliders()
+		lines = append(lines, colliders[:]...)
 	}
 	for _, target := range d.DropTargets {
 		lines = append(lines, target.Collider())
@@ -265,24 +367,20 @@ func (d *Definition) CircleColliders() []physics.CircleCollider {
 	return circles
 }
 
-// Sensors returns every non-contact trigger in stable playfield order.
+// Sensors returns every rule-bearing non-contact trigger in stable playfield
+// order. Inlanes and outlanes are visual routing markers, not game-rule
+// sensors, so they are deliberately omitted.
 func (d *Definition) Sensors() []physics.Sensor {
 	if d == nil {
 		return nil
 	}
-	count := len(d.RolloverLanes) + len(d.DropTargets) + len(d.Inlanes) + len(d.Outlanes) + 1
+	count := len(d.RolloverLanes) + len(d.DropTargets) + 1
 	sensors := make([]physics.Sensor, 0, count)
 	for _, lane := range d.RolloverLanes {
 		sensors = append(sensors, lane.Sensor())
 	}
 	for _, target := range d.DropTargets {
 		sensors = append(sensors, target.Sensor())
-	}
-	for _, lane := range d.Inlanes {
-		sensors = append(sensors, lane.Sensor())
-	}
-	for _, lane := range d.Outlanes {
-		sensors = append(sensors, lane.Sensor())
 	}
 	sensors = append(sensors, d.Drain.Sensor())
 	return sensors

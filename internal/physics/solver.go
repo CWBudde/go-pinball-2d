@@ -3,13 +3,14 @@ package physics
 import "math"
 
 const (
-	DefaultSolverIterations = 8
+	defaultSolverIterations = 8
 	positionSlop            = 0.001
 )
 
 // ResolveStaticContact applies restitution and Coulomb friction against a
 // surface that may itself be moving (as a flipper does). The returned value is
-// the normal velocity impulse per unit mass.
+// the normal velocity impulse. Balls have unit mass, so the impulse is also
+// the resulting normal velocity change.
 func ResolveStaticContact(ball *Ball, normal, surfaceVelocity Vec, material Material) float64 {
 	n := normal.Normalized()
 	if n.LengthSquared() == 0 {
@@ -31,7 +32,7 @@ func ResolveStaticContact(ball *Ball, normal, surfaceVelocity Vec, material Mate
 		ball.Velocity = ball.Velocity.Sub(tangent.Mul(frictionImpulse / tangentSpeed))
 	}
 	ball.Velocity = ball.Velocity.ClampLength(effectiveMaxSpeed(ball))
-	return normalImpulse * ball.Mass
+	return normalImpulse
 }
 
 func CorrectPenetration(ball *Ball, normal Vec, penetration float64) {
@@ -56,12 +57,17 @@ type World struct {
 	SafePosition  Vec
 }
 
+// SetLines replaces the world's static line colliders. The supplied slice is
+// copied so callers can freely reuse or modify it after the call.
+func (w *World) SetLines(lines []LineCollider) {
+	w.Lines = append([]LineCollider(nil), lines...)
+}
+
 type collisionCandidate struct {
 	hit      Hit
 	id       string
 	material Material
 	velocity Vec
-	flipper  bool
 }
 
 // StepBall advances one ball by dt. It uses conservative swept collision
@@ -75,7 +81,7 @@ func (w *World) StepBall(ball *Ball, dt float64) []Contact {
 	remaining := dt
 	iterations := w.MaxIterations
 	if iterations <= 0 {
-		iterations = DefaultSolverIterations
+		iterations = defaultSolverIterations
 	}
 	contacts := make([]Contact, 0, 2)
 
@@ -94,7 +100,7 @@ func (w *World) StepBall(ball *Ball, dt float64) []Contact {
 		impulse := ResolveStaticContact(ball, best.hit.Normal, best.velocity, best.material)
 		contacts = append(contacts, Contact{
 			ColliderID: best.id, Point: best.hit.Point, Normal: best.hit.Normal,
-			Impulse: impulse, SurfaceVelocity: best.velocity, Flipper: best.flipper,
+			Impulse: impulse,
 		})
 
 		// Separate by a tiny amount even for a zero-depth swept hit. This avoids
@@ -114,22 +120,22 @@ func (w *World) StepBall(ball *Ball, dt float64) []Contact {
 
 func (w *World) earliestCollision(ball Ball, delta Vec) (collisionCandidate, bool) {
 	best := collisionCandidate{hit: Hit{TOI: math.Inf(1)}}
-	consider := func(hit Hit, ok bool, id string, material Material, velocity Vec, flipper bool) {
+	consider := func(hit Hit, ok bool, id string, material Material, velocity Vec) {
 		// Sweeps deliberately report an initial overlap so approaching bodies can
 		// still be resolved. Do not turn an overlap into a contact when the ball
 		// is already stationary relative to, or separating from, the surface.
 		relativeVelocity := ball.Velocity.Sub(velocity)
 		if ok && relativeVelocity.Dot(hit.Normal) < 0 && hit.TOI < best.hit.TOI {
-			best = collisionCandidate{hit: hit, id: id, material: material, velocity: velocity, flipper: flipper}
+			best = collisionCandidate{hit: hit, id: id, material: material, velocity: velocity}
 		}
 	}
 	for _, line := range w.Lines {
 		hit, ok := SweepCircleSegment(ball.Position, delta, ball.Radius, line)
-		consider(hit, ok, line.ID, line.Material, Vec{}, false)
+		consider(hit, ok, line.ID, line.Material, Vec{})
 	}
 	for _, circle := range w.Circles {
 		hit, ok := SweepCircleCircle(ball.Position, delta, ball.Radius, circle)
-		consider(hit, ok, circle.ID, circle.Material, Vec{}, false)
+		consider(hit, ok, circle.ID, circle.Material, Vec{})
 	}
 	for _, flipper := range w.Flippers {
 		if flipper == nil {
@@ -141,7 +147,7 @@ func (w *World) earliestCollision(ball Ball, delta Vec) (collisionCandidate, boo
 		if ok {
 			velocity = flipper.SurfaceVelocity(hit.Point)
 		}
-		consider(hit, ok, flipper.ID, flipper.Material, velocity, true)
+		consider(hit, ok, flipper.ID, flipper.Material, velocity)
 	}
 	return best, !math.IsInf(best.hit.TOI, 1)
 }

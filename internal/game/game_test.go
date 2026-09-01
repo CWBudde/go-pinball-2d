@@ -114,6 +114,34 @@ func TestThreeBallStateTransitionsAndBonus(t *testing.T) {
 	}
 }
 
+func TestDrainEventPrecedesBonusEvent(t *testing.T) {
+	g := newStartedGame(t)
+	g.setState(Playing)
+	g.Bonus = 100
+	g.BonusMultiplier = 2
+	g.Ball.Position = physics.V(360, 1060)
+
+	events := g.Update(FixedStep, Input{})
+	if len(events) != 2 {
+		t.Fatalf("drain events = %#v, want BallDrained then BonusAwarded", events)
+	}
+	if events[0].Kind != BallDrained || events[1].Kind != BonusAwarded {
+		t.Fatalf("drain event order = [%v, %v], want [%v, %v]", events[0].Kind, events[1].Kind, BallDrained, BonusAwarded)
+	}
+}
+
+func TestLoadingFallsBackAfterTimeout(t *testing.T) {
+	g := New(table.New(), &MemoryStore{})
+	advanceFor(g, loadingTimeout-.1, Input{})
+	if g.State != Loading {
+		t.Fatalf("state before loading timeout = %v, want Loading", g.State)
+	}
+	advanceFor(g, .2, Input{})
+	if g.State != Attract {
+		t.Fatalf("state after loading timeout = %v, want Attract", g.State)
+	}
+}
+
 func TestTargetBankMultiplierAndLitJackpot(t *testing.T) {
 	g := newStartedGame(t)
 	launchBall(t, g)
@@ -268,6 +296,26 @@ func TestSeparatingBumperContactDoesNotScore(t *testing.T) {
 	g.scoreContacts([]physics.Contact{contact})
 	if g.Score != table.BumperScore {
 		t.Fatalf("positive-impulse bumper contact scored %d, want %d", g.Score, table.BumperScore)
+	}
+}
+
+func TestContactScoringUsesFeatureMetadataInsteadOfIDPrefixes(t *testing.T) {
+	definition := table.New()
+	const (
+		id    = "main-pop"
+		score = 731
+	)
+	definition.Features[id] = table.Feature{ID: id, Kind: table.FeatureBumper, Score: score}
+	g := New(definition, &MemoryStore{})
+
+	point := physics.V(123, 456)
+	g.scoreContacts([]physics.Contact{{ColliderID: id, Point: point, Impulse: 1}})
+	if g.Score != score {
+		t.Fatalf("feature contact score = %d, want %d", g.Score, score)
+	}
+	events := g.events.drain()
+	if len(events) != 1 || events[0].Kind != BumperHit || events[0].ID != id || events[0].Points != score || events[0].At != point {
+		t.Fatalf("feature contact events = %#v", events)
 	}
 }
 

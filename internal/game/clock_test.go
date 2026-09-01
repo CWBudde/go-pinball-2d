@@ -25,8 +25,8 @@ func TestClockDropsSuspensionBacklog(t *testing.T) {
 	if steps != MaxSteps {
 		t.Fatalf("got %d steps after suspension, want cap %d", steps, MaxSteps)
 	}
-	if clock.Alpha() >= 1 {
-		t.Fatalf("backlog was not dropped: alpha=%g", clock.Alpha())
+	if alpha := clock.accumulator / FixedStep; alpha >= 1 {
+		t.Fatalf("backlog was not dropped: alpha=%g", alpha)
 	}
 }
 

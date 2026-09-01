@@ -63,14 +63,10 @@ func TestPlungerChargeLimitsAndRelease(t *testing.T) {
 
 func TestSensorsAndCooldown(t *testing.T) {
 	ball := NewBall(V(5, 5), 1)
-	sensors := []Sensor{
-		CircleSensor{ID: "lane", Center: V(5, 3), Radius: 1},
-		BoxSensor{ID: "drain", Min: V(0, 4), Max: V(10, 6)},
-		SegmentSensor{ID: "target", Segment: Segment{A: V(20, 0), B: V(20, 10)}, Radius: 1},
-	}
-	ids := OverlappingSensors(ball, sensors)
-	if len(ids) != 2 || ids[0] != "lane" || ids[1] != "drain" {
-		t.Fatalf("overlaps=%v", ids)
+	drain := BoxSensor{ID: "drain", Min: V(0, 4), Max: V(10, 6)}
+	target := SegmentSensor{ID: "target", Segment: Segment{A: V(20, 0), B: V(20, 10)}, Radius: 1}
+	if !drain.Overlaps(ball) || target.Overlaps(ball) {
+		t.Fatalf("sensor overlap mismatch: drain=%v target=%v", drain.Overlaps(ball), target.Overlaps(ball))
 	}
 
 	var cooldowns Cooldowns

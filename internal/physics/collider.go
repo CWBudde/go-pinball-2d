@@ -32,12 +32,10 @@ type Hit struct {
 }
 
 type Contact struct {
-	ColliderID      string
-	Point           Vec
-	Normal          Vec
-	Impulse         float64
-	SurfaceVelocity Vec
-	Flipper         bool
+	ColliderID string
+	Point      Vec
+	Normal     Vec
+	Impulse    float64
 }
 
 func SweepCircleCircle(start, delta Vec, movingRadius float64, collider CircleCollider) (Hit, bool) {

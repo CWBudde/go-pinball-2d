@@ -16,7 +16,6 @@ func (a Vec) Sub(b Vec) Vec          { return Vec{a.X - b.X, a.Y - b.Y} }
 func (a Vec) Mul(s float64) Vec      { return Vec{a.X * s, a.Y * s} }
 func (a Vec) Div(s float64) Vec      { return Vec{a.X / s, a.Y / s} }
 func (a Vec) Dot(b Vec) float64      { return a.X*b.X + a.Y*b.Y }
-func (a Vec) Cross(b Vec) float64    { return a.X*b.Y - a.Y*b.X }
 func (a Vec) LengthSquared() float64 { return a.Dot(a) }
 func (a Vec) Length() float64        { return math.Sqrt(a.LengthSquared()) }
 func (a Vec) Perp() Vec              { return Vec{-a.Y, a.X} }

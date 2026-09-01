@@ -7,8 +7,7 @@ type Segment struct {
 	B Vec
 }
 
-func (s Segment) Vector() Vec     { return s.B.Sub(s.A) }
-func (s Segment) Length() float64 { return s.Vector().Length() }
+func (s Segment) Vector() Vec { return s.B.Sub(s.A) }
 
 func (s Segment) ClosestPoint(p Vec) Vec {
 	ab := s.Vector()

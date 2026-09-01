@@ -1,17 +1,16 @@
 package game
 
 import (
-	"strings"
-
 	"github.com/CWBudde/go-pinball-2d/internal/physics"
 	"github.com/CWBudde/go-pinball-2d/internal/table"
 )
 
 const (
-	ballsPerGame  = 3
-	jackpotPoints = 5000
-	ballLostDelay = 1.25
-	gameOverDelay = 6.0
+	ballsPerGame   = 3
+	jackpotPoints  = 5000
+	ballLostDelay  = 1.25
+	gameOverDelay  = 6.0
+	loadingTimeout = 10.0
 )
 
 // Game contains all mutable simulation and rules state. Visual effects, audio,
@@ -151,7 +150,13 @@ func (g *Game) step(dt float64) {
 			g.setState(g.resumeState)
 		}
 	}
-	if g.State == Paused || g.State == Loading {
+	if g.State == Loading {
+		if g.StateTime >= loadingTimeout {
+			g.setState(Attract)
+		}
+		return
+	}
+	if g.State == Paused {
 		return
 	}
 
@@ -226,17 +231,20 @@ func (g *Game) stepPlaying(dt float64) {
 			continue
 		}
 		id := sensor.SensorID()
-		if id == g.Table.Drain.ID {
+		feature, ok := g.Table.Feature(id)
+		if !ok {
+			continue
+		}
+		switch feature.Kind {
+		case table.FeatureDrain:
 			g.drainBall()
 			return
-		}
-		switch {
-		case strings.HasPrefix(id, "rollover_"):
+		case table.FeatureRollover:
 			if g.cooldowns.Allow("sensor:"+id, .5) {
 				g.litLanes[id] = true
-				g.award(table.RolloverScore, RolloverLit, id, g.Ball.Position)
+				g.award(feature.Score, RolloverLit, id, g.Ball.Position)
 			}
-		case strings.HasPrefix(id, "target_"):
+		case table.FeatureDropTarget:
 			g.hitTarget(id)
 		}
 	}
@@ -255,14 +263,18 @@ func (g *Game) scoreContacts(contacts []physics.Contact) {
 		if contact.Impulse <= 0 {
 			continue
 		}
+		feature, ok := g.Table.Feature(contact.ColliderID)
+		if !ok || (feature.Kind != table.FeatureBumper && feature.Kind != table.FeatureSlingshot) {
+			continue
+		}
 		if !g.cooldowns.Allow("contact:"+contact.ColliderID, .075) {
 			continue
 		}
-		switch {
-		case strings.HasPrefix(contact.ColliderID, "bumper_"):
-			g.award(table.BumperScore, BumperHit, contact.ColliderID, contact.Point)
-		case strings.HasPrefix(contact.ColliderID, "slingshot_"):
-			g.award(table.SlingshotScore, SlingshotHit, contact.ColliderID, contact.Point)
+		switch feature.Kind {
+		case table.FeatureBumper:
+			g.award(feature.Score, BumperHit, contact.ColliderID, contact.Point)
+		case table.FeatureSlingshot:
+			g.award(feature.Score, SlingshotHit, contact.ColliderID, contact.Point)
 		}
 	}
 }
@@ -316,6 +328,7 @@ func (g *Game) drainBall() {
 	}
 	g.Ball.Active = false
 	g.BallsRemaining--
+	g.events.emit(Event{Kind: BallDrained, At: g.Ball.Position})
 	points := g.Bonus * g.BonusMultiplier
 	if points > 0 {
 		g.addScore(points)
@@ -329,17 +342,20 @@ func (g *Game) drainBall() {
 	}
 	g.bankReset = 0
 	clear(g.litLanes)
-	g.events.emit(Event{Kind: BallDrained, At: g.Ball.Position})
 	g.setState(BallLost)
 }
 
 func (g *Game) hitTarget(id string) {
+	feature, ok := g.Table.Feature(id)
+	if !ok || feature.Kind != table.FeatureDropTarget {
+		return
+	}
 	if g.targetsDown[id] || !g.cooldowns.Allow("sensor:"+id, .2) {
 		return
 	}
 	g.targetsDown[id] = true
 	g.rebuildTargetColliders()
-	g.award(table.DropTargetScore, TargetDown, id, g.Ball.Position)
+	g.award(feature.Score, TargetDown, id, g.Ball.Position)
 	if len(g.litLanes) > 0 {
 		g.award(jackpotPoints, JackpotAwarded, id, g.Ball.Position)
 		clear(g.litLanes)
@@ -355,13 +371,15 @@ func (g *Game) hitTarget(id string) {
 
 func (g *Game) rebuildTargetColliders() {
 	lines := g.Table.LineColliders()
-	g.World.Lines = g.World.Lines[:0]
+	active := lines[:0]
 	for _, line := range lines {
-		if strings.HasPrefix(line.ID, "target_") && g.targetsDown[line.ID] {
+		feature, ok := g.Table.Feature(line.ID)
+		if ok && feature.Kind == table.FeatureDropTarget && g.targetsDown[line.ID] {
 			continue
 		}
-		g.World.Lines = append(g.World.Lines, line)
+		active = append(active, line)
 	}
+	g.World.SetLines(active)
 }
 
 func (g *Game) award(points int, kind EventKind, id string, at physics.Vec) {

@@ -38,11 +38,3 @@ func (c *Clock) Advance(elapsed float64, simulate func(dt float64)) int {
 	}
 	return steps
 }
-
-func (c *Clock) Alpha() float64 {
-	return c.accumulator / FixedStep
-}
-
-func (c *Clock) Reset() {
-	c.accumulator = 0
-}

@@ -72,14 +72,14 @@ func TestNeonRelayFeatureCountsAndIDs(t *testing.T) {
 func TestDefinitionBuildsCompletePhysicsData(t *testing.T) {
 	d := New()
 	world := d.World()
-	wantLines := len(d.OuterWalls) + len(d.ShooterLane) + len(d.GuideWalls) + len(d.Slingshots) + len(d.DropTargets)
+	wantLines := len(d.OuterWalls) + len(d.ShooterLane) + len(d.GuideWalls) + 3*len(d.Slingshots) + len(d.DropTargets)
 	if len(world.Lines) != wantLines {
 		t.Fatalf("world line count = %d, want %d", len(world.Lines), wantLines)
 	}
 	if got, want := len(world.Circles), len(d.Bumpers)+len(d.Posts); got != want {
 		t.Fatalf("world circle count = %d, want %d", got, want)
 	}
-	wantSensors := len(d.RolloverLanes) + len(d.DropTargets) + len(d.Inlanes) + len(d.Outlanes) + 1
+	wantSensors := len(d.RolloverLanes) + len(d.DropTargets) + 1
 	if got := len(d.Sensors()); got != wantSensors {
 		t.Fatalf("sensor count = %d, want %d", got, wantSensors)
 	}
@@ -97,6 +97,19 @@ func TestDefinitionBuildsCompletePhysicsData(t *testing.T) {
 	}
 }
 
+func TestSensorsExcludeVisualInlaneAndOutlaneMarkers(t *testing.T) {
+	d := New()
+	for _, sensor := range d.Sensors() {
+		feature, ok := d.Feature(sensor.SensorID())
+		if !ok {
+			t.Fatalf("sensor %q has no feature", sensor.SensorID())
+		}
+		if feature.Kind == FeatureInlane || feature.Kind == FeatureOutlane {
+			t.Errorf("visual routing marker %q is still an active sensor", feature.ID)
+		}
+	}
+}
+
 func TestRestingFlippersLeaveBallDrainGap(t *testing.T) {
 	d := New()
 	leftTip := d.Flippers[0].Tip()
@@ -104,6 +117,31 @@ func TestRestingFlippersLeaveBallDrainGap(t *testing.T) {
 	freeGap := rightTip.Sub(leftTip).Length() - d.Flippers[0].Radius - d.Flippers[1].Radius
 	if freeGap <= BallRadius*2 {
 		t.Fatalf("resting flippers close the drain: free gap %.2f, ball diameter %.2f", freeGap, BallRadius*2)
+	}
+}
+
+func TestFlipperPostsDoNotOverlapFlippers(t *testing.T) {
+	d := New()
+	posts := map[string]Post{}
+	for _, post := range d.Posts {
+		posts[post.ID] = post
+	}
+	for _, side := range []string{"left", "right"} {
+		post := posts["post_"+side+"_flipper"]
+		var flipper *physics.Flipper
+		for _, candidate := range d.Flippers {
+			if candidate.ID == "flipper_"+side {
+				flipper = candidate
+				break
+			}
+		}
+		if flipper == nil {
+			t.Fatalf("missing %s flipper", side)
+		}
+		distance := post.Center.Sub(flipper.Pivot).Length()
+		if distance <= post.Radius+flipper.Radius {
+			t.Errorf("%s post overlaps flipper: distance %.2f, combined radius %.2f", side, distance, post.Radius+flipper.Radius)
+		}
 	}
 }
 
@@ -193,19 +231,77 @@ func TestTableGeometryStaysInsideLogicalBounds(t *testing.T) {
 
 func TestColliderAndSensorIDsMatchFeatures(t *testing.T) {
 	d := New()
+	assertFeature := func(id string, wantKind FeatureKind) Feature {
+		t.Helper()
+		feature, ok := d.Feature(id)
+		if !ok {
+			t.Errorf("ID %q does not resolve to a table feature", id)
+			return Feature{}
+		}
+		if feature.ID != id {
+			t.Errorf("feature map key %q contains ID %q", id, feature.ID)
+		}
+		if feature.Kind != wantKind {
+			t.Errorf("feature %q kind = %q, want %q", id, feature.Kind, wantKind)
+		}
+		return feature
+	}
+	for _, collider := range d.LineColliders() {
+		wantKind := FeatureWall
+		if _, ok := findSlingshot(d.Slingshots, collider.ID); ok {
+			wantKind = FeatureSlingshot
+		}
+		if _, ok := findDropTarget(d.DropTargets, collider.ID); ok {
+			wantKind = FeatureDropTarget
+		}
+		assertFeature(collider.ID, wantKind)
+	}
+	for _, collider := range d.CircleColliders() {
+		wantKind := FeaturePost
+		if _, ok := findBumper(d.Bumpers, collider.ID); ok {
+			wantKind = FeatureBumper
+		}
+		assertFeature(collider.ID, wantKind)
+	}
+	for _, sensor := range d.Sensors() {
+		feature, ok := d.Feature(sensor.SensorID())
+		if !ok || feature.Kind == "" {
+			t.Errorf("sensor ID %q does not resolve to a known feature kind", sensor.SensorID())
+		}
+	}
+	for _, flipper := range d.Flippers {
+		assertFeature(flipper.Collider().ID, FeatureFlipper)
+	}
+
 	for _, bumper := range d.Bumpers {
 		if bumper.Collider().ID != bumper.ID {
 			t.Errorf("bumper collider ID mismatch for %q", bumper.ID)
 		}
+		if feature := assertFeature(bumper.ID, FeatureBumper); feature.Score != bumper.Score {
+			t.Errorf("bumper %q catalog score = %d, want %d", bumper.ID, feature.Score, bumper.Score)
+		}
 	}
 	for _, sling := range d.Slingshots {
-		if sling.Collider().ID != sling.ID {
-			t.Errorf("slingshot collider ID mismatch for %q", sling.ID)
+		colliders := sling.Colliders()
+		for i, collider := range colliders {
+			if collider.ID != sling.ID {
+				t.Errorf("slingshot collider %d ID mismatch for %q", i, sling.ID)
+			}
+			want := physics.Segment{A: sling.Triangle[i], B: sling.Triangle[(i+1)%len(sling.Triangle)]}
+			if collider.Segment != want {
+				t.Errorf("slingshot collider %d segment = %+v, want %+v", i, collider.Segment, want)
+			}
+		}
+		if feature := assertFeature(sling.ID, FeatureSlingshot); feature.Score != sling.Score {
+			t.Errorf("slingshot %q catalog score = %d, want %d", sling.ID, feature.Score, sling.Score)
 		}
 	}
 	for _, target := range d.DropTargets {
 		if target.Collider().ID != target.ID || target.Sensor().ID != target.ID {
 			t.Errorf("drop-target physics ID mismatch for %q", target.ID)
+		}
+		if feature := assertFeature(target.ID, FeatureDropTarget); feature.Score != target.Score {
+			t.Errorf("drop target %q catalog score = %d, want %d", target.ID, feature.Score, target.Score)
 		}
 	}
 	for _, sensor := range d.Sensors() {
@@ -213,4 +309,31 @@ func TestColliderAndSensorIDsMatchFeatures(t *testing.T) {
 			t.Error("sensor has an empty ID")
 		}
 	}
+}
+
+func findBumper(bumpers []Bumper, id string) (Bumper, bool) {
+	for _, bumper := range bumpers {
+		if bumper.ID == id {
+			return bumper, true
+		}
+	}
+	return Bumper{}, false
+}
+
+func findSlingshot(slingshots []Slingshot, id string) (Slingshot, bool) {
+	for _, slingshot := range slingshots {
+		if slingshot.ID == id {
+			return slingshot, true
+		}
+	}
+	return Slingshot{}, false
+}
+
+func findDropTarget(targets []DropTarget, id string) (DropTarget, bool) {
+	for _, target := range targets {
+		if target.ID == id {
+			return target, true
+		}
+	}
+	return DropTarget{}, false
 }
