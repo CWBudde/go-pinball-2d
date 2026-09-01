@@ -33,6 +33,8 @@ const (
 	flipperAssetPivotX      = 30.0
 	flipperAssetTipX        = 148.0
 	flipperAssetAnchorWidth = flipperAssetTipX - flipperAssetPivotX
+	flipperAssetCenterX     = flipperAssetWidth / 2
+	flipperAnchorCenterX    = (flipperAssetPivotX + flipperAssetTipX) / 2
 )
 
 var (
@@ -173,7 +175,9 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 		midpoint := flipper.Pivot.Add(flipper.Tip()).Mul(.5)
 		angle := int(math.Round(flipper.Angle * 180 / math.Pi))
 		scale := flipper.Length / flipperAssetAnchorWidth
-		r.spriteCentered(window, "assets/images/flipper.png", view, midpoint, flipperAssetWidth*scale, flipperAssetHeight*scale, angle)
+		centerOffset := (flipperAssetCenterX - flipperAnchorCenterX) * scale
+		center := midpoint.Add(physics.V(math.Cos(flipper.Angle), math.Sin(flipper.Angle)).Mul(centerOffset))
+		r.spriteCentered(window, "assets/images/flipper.png", view, center, flipperAssetWidth*scale, flipperAssetHeight*scale, angle)
 	}
 
 	plungerY := definition.Plunger.Position.Y - 52 + current.PlungerCharge*22

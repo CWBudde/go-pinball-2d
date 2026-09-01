@@ -190,7 +190,8 @@ Provide a custom `index.html` containing:
 - Relative URLs so deployment works under `/pinball-2d/`
 - Accessible page title and canvas description
 
-Create `scripts/build-web.sh` to:
+Create `scripts/build-web.sh`, committed with executable mode (`0755`) so
+`just web` works in a fresh CI checkout, to:
 
 1. Generate or verify assets.
 2. Run the pinned `drawsm build`.
