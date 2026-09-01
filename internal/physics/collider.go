@@ -110,7 +110,7 @@ func SweepCircleSegment(start, delta Vec, movingRadius float64, collider LineCol
 }
 
 func combineMaterial(ball *Ball, surface Material) (float64, float64) {
-	restitution := Clamp(math.Max(ball.Restitution, surface.Restitution), 0, 1.2)
+	restitution := Clamp(math.Sqrt(math.Max(0, ball.Restitution)*math.Max(0, surface.Restitution)), 0, 1.2)
 	friction := Clamp(math.Sqrt(math.Max(0, ball.Friction)*math.Max(0, surface.Friction)), 0, 1)
 	return restitution, friction
 }

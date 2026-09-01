@@ -33,7 +33,10 @@ type Game struct {
 
 	clock          Clock
 	store          HighScoreStore
+	savedHighScore int
 	plunger        physics.Plunger
+	leftFlipper    *physics.Flipper
+	rightFlipper   *physics.Flipper
 	sensors        []physics.Sensor
 	cooldowns      physics.Cooldowns
 	targetsDown    map[string]bool
@@ -53,19 +56,58 @@ func New(def *table.Definition, store HighScoreStore) *Game {
 	if def == nil {
 		def = table.New()
 	}
+	leftFlipper, rightFlipper := gameFlippers(def.Flippers)
 	if store == nil {
 		store = &MemoryStore{}
 	}
 	g := &Game{
 		State: Loading, Table: def, World: def.World(), store: store,
 		plunger: def.Plunger.Mechanism, sensors: def.Sensors(),
+		leftFlipper: leftFlipper, rightFlipper: rightFlipper,
 		targetsDown: make(map[string]bool), litLanes: make(map[string]bool),
 		BonusMultiplier: 1,
 	}
-	g.HighScore = max(0, store.LoadHighScore())
+	g.savedHighScore = max(0, store.LoadHighScore())
+	g.HighScore = g.savedHighScore
 	g.Ball = physics.NewBall(def.BallSpawn, table.BallRadius)
 	g.Ball.Active = false
 	return g
+}
+
+func gameFlippers(flippers []*physics.Flipper) (*physics.Flipper, *physics.Flipper) {
+	if len(flippers) < 2 {
+		panic("game: table definition must contain at least two flippers")
+	}
+	var left, right *physics.Flipper
+	for _, flipper := range flippers {
+		if flipper == nil {
+			continue
+		}
+		switch flipper.ID {
+		case "flipper_left":
+			left = flipper
+		case "flipper_right":
+			right = flipper
+		}
+	}
+	pickOther := func(excluded *physics.Flipper) *physics.Flipper {
+		for _, flipper := range flippers {
+			if flipper != nil && flipper != excluded {
+				return flipper
+			}
+		}
+		return nil
+	}
+	if left == nil {
+		left = pickOther(right)
+	}
+	if right == nil {
+		right = pickOther(left)
+	}
+	if left == nil || right == nil || left == right {
+		panic("game: table definition must contain distinct left and right flippers")
+	}
+	return left, right
 }
 
 // FinishLoading leaves the loading screen. It is safe to call repeatedly.
@@ -113,15 +155,15 @@ func (g *Game) step(dt float64) {
 		return
 	}
 
-	g.World.Flippers[0].SetEngaged(g.lastInput.LeftFlipper)
-	g.World.Flippers[1].SetEngaged(g.lastInput.RightFlipper)
+	g.leftFlipper.SetEngaged(g.lastInput.LeftFlipper)
+	g.rightFlipper.SetEngaged(g.lastInput.RightFlipper)
 	if g.pendingLeft {
 		g.pendingLeft = false
-		g.events.emit(Event{Kind: FlipperFired, ID: "flipper_left", At: g.World.Flippers[0].Pivot})
+		g.events.emit(Event{Kind: FlipperFired, ID: g.leftFlipper.ID, At: g.leftFlipper.Pivot})
 	}
 	if g.pendingRight {
 		g.pendingRight = false
-		g.events.emit(Event{Kind: FlipperFired, ID: "flipper_right", At: g.World.Flippers[1].Pivot})
+		g.events.emit(Event{Kind: FlipperFired, ID: g.rightFlipper.ID, At: g.rightFlipper.Pivot})
 	}
 	g.World.StepFlippers(dt)
 
@@ -152,6 +194,7 @@ func (g *Game) step(dt float64) {
 			if g.BallsRemaining > 0 {
 				g.serveBall()
 			} else {
+				g.flushHighScore()
 				g.setState(GameOver)
 				g.events.emit(Event{Kind: GameEnded})
 			}
@@ -176,17 +219,7 @@ func (g *Game) stepPlaying(dt float64) {
 		g.rearmPlunger()
 		return
 	}
-	for _, contact := range contacts {
-		if !g.cooldowns.Allow("contact:"+contact.ColliderID, .075) {
-			continue
-		}
-		switch {
-		case strings.HasPrefix(contact.ColliderID, "bumper_"):
-			g.award(table.BumperScore, BumperHit, contact.ColliderID, contact.Point)
-		case strings.HasPrefix(contact.ColliderID, "slingshot_"):
-			g.award(table.SlingshotScore, SlingshotHit, contact.ColliderID, contact.Point)
-		}
-	}
+	g.scoreContacts(contacts)
 
 	for _, sensor := range g.sensors {
 		if !sensor.Overlaps(g.Ball) {
@@ -217,6 +250,23 @@ func (g *Game) stepPlaying(dt float64) {
 	}
 }
 
+func (g *Game) scoreContacts(contacts []physics.Contact) {
+	for _, contact := range contacts {
+		if contact.Impulse <= 0 {
+			continue
+		}
+		if !g.cooldowns.Allow("contact:"+contact.ColliderID, .075) {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(contact.ColliderID, "bumper_"):
+			g.award(table.BumperScore, BumperHit, contact.ColliderID, contact.Point)
+		case strings.HasPrefix(contact.ColliderID, "slingshot_"):
+			g.award(table.SlingshotScore, SlingshotHit, contact.ColliderID, contact.Point)
+		}
+	}
+}
+
 func (g *Game) ballReturnedToPlunger() bool {
 	spawn := g.Table.BallSpawn
 	return g.Ball.Active &&
@@ -242,6 +292,7 @@ func (g *Game) startGame() {
 	g.BallsRemaining = ballsPerGame
 	g.BallNumber = 0
 	clear(g.targetsDown)
+	g.bankReset = 0
 	clear(g.litLanes)
 	g.cooldowns.Clear()
 	g.rebuildTargetColliders()
@@ -272,6 +323,11 @@ func (g *Game) drainBall() {
 	}
 	g.Bonus = 0
 	g.BonusMultiplier = 1
+	if g.bankReset > 0 {
+		clear(g.targetsDown)
+		g.rebuildTargetColliders()
+	}
+	g.bankReset = 0
 	clear(g.litLanes)
 	g.events.emit(Event{Kind: BallDrained, At: g.Ball.Position})
 	g.setState(BallLost)
@@ -321,8 +377,15 @@ func (g *Game) addScore(points int) {
 	g.Score += points
 	if g.Score > g.HighScore {
 		g.HighScore = g.Score
-		g.store.SaveHighScore(g.HighScore)
 	}
+}
+
+func (g *Game) flushHighScore() {
+	if g.HighScore <= g.savedHighScore {
+		return
+	}
+	g.store.SaveHighScore(g.HighScore)
+	g.savedHighScore = g.HighScore
 }
 
 func (g *Game) setState(state State) {

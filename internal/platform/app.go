@@ -18,7 +18,7 @@ type app struct {
 	renderer      renderer
 	lastFrame     time.Time
 	audioUnlocked bool
-	iconSet       bool
+	iconAttempted bool
 	statusError   error
 }
 
@@ -29,6 +29,8 @@ func Run() error {
 }
 
 func (a *app) update(window draw.Window) {
+	a.clearStatusError()
+
 	now := time.Now()
 	elapsed := 0.0
 	if !a.lastFrame.IsZero() {
@@ -54,12 +56,8 @@ func (a *app) update(window draw.Window) {
 	assetsReady := a.renderer.preload(window)
 	if assetsReady {
 		a.game.FinishLoading()
-		if !a.iconSet {
-			if err := window.SetIcon("assets/images/favicon.png"); err != nil {
-				a.statusError = fmt.Errorf("favicon: %w", err)
-			} else {
-				a.iconSet = true
-			}
+		if err := a.setIconOnce(window.SetIcon); err != nil {
+			a.statusError = fmt.Errorf("favicon: %w", err)
 		}
 	}
 
@@ -76,6 +74,18 @@ func (a *app) update(window draw.Window) {
 		}
 	}
 	a.renderer.draw(window, a.game, elapsed, a.statusError)
+}
+
+func (a *app) clearStatusError() {
+	a.statusError = nil
+}
+
+func (a *app) setIconOnce(setIcon func(string) error) error {
+	if a.iconAttempted {
+		return nil
+	}
+	a.iconAttempted = true
+	return setIcon("assets/images/favicon.png")
 }
 
 func soundFor(kind game.EventKind) string {

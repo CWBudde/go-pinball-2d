@@ -1,6 +1,7 @@
 package table
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/CWBudde/go-pinball-2d/internal/physics"
@@ -103,6 +104,43 @@ func TestRestingFlippersLeaveBallDrainGap(t *testing.T) {
 	freeGap := rightTip.Sub(leftTip).Length() - d.Flippers[0].Radius - d.Flippers[1].Radius
 	if freeGap <= BallRadius*2 {
 		t.Fatalf("resting flippers close the drain: free gap %.2f, ball diameter %.2f", freeGap, BallRadius*2)
+	}
+}
+
+func TestPlayfieldRoutesDroppedBallsThroughDrainSensor(t *testing.T) {
+	const (
+		step              = 1.0 / 240.0
+		maxSimulationTime = 30.0
+		emergencyDrainY   = Height + 80
+	)
+	d := New()
+	drain := d.Drain.Sensor()
+	rows := []struct {
+		y, minX, maxX float64
+	}{
+		{y: 850, minX: 80, maxX: 560},
+		{y: 900, minX: 100, maxX: 550},
+		{y: 950, minX: 150, maxX: 500},
+	}
+	for _, row := range rows {
+		for x := row.minX; x <= row.maxX; x += 50 {
+			y := row.y
+			start := physics.V(x, y)
+			t.Run(fmt.Sprintf("x%.0f_y%.0f", x, y), func(t *testing.T) {
+				world := d.World()
+				ball := physics.NewBall(start, BallRadius)
+				for elapsed := 0.0; elapsed < maxSimulationTime; elapsed += step {
+					world.StepBall(&ball, step)
+					if drain.Overlaps(ball) {
+						return
+					}
+					if ball.Position.Y > emergencyDrainY {
+						t.Fatalf("ball bypassed drain sensor and reached emergency fallback at %+v", ball.Position)
+					}
+				}
+				t.Fatalf("ball did not reach drain sensor within %v seconds: position=%+v velocity=%+v", maxSimulationTime, ball.Position, ball.Velocity)
+			})
+		}
 	}
 }
 

@@ -269,3 +269,245 @@ The implementation is complete when:
 - All visual and audio assets are original and documented.
 - Unit tests and the WASM build pass in CI.
 - A push to the default branch reproducibly publishes the game.
+
+## 11. Post-review remediation
+
+A full codebase review (physics, game logic, platform/rendering, build tooling,
+and Go/test quality) produced the findings below. They are grouped into four
+phases; phase 11.1 comes first because the current test harness cannot detect
+most of the other defects.
+
+Legend: `[ ]` open, `[x]` done, `[~]` in progress, `[-]` deliberately skipped.
+
+### 11.1 Phase A - make the safety net real
+
+The flagship integration test never plays the table.
+`TestScriptedSimulationStaysFinite` holds the plunger for 12 frames at 1/60 s,
+but `Plunger.Hold` runs once per _fixed step_, so the charge reaches only 0.15.
+The ball rises 274 px, never leaves the shooter lane, and the run ends with 11
+plunger re-arms and a final score of 0 after 20 simulated seconds. Bumpers,
+slingshots, targets, rollovers, flippers, the drain sensor, and the guide walls
+are therefore untested end to end. Several defects in phase 11.2 survived
+precisely because of this.
+
+- [x] Charge the plunger to full (~1.4 s) in the scripted tests, and assert the
+      ball actually exits the lane (`Ball.Position.Y < 300`) and that the final
+      score is non-zero. Same fix for
+      `TestWeakLaunchCanBeRechargedAndRelaunched` and
+      `TestScriptedSimulationIsConsistentAcrossRefreshRates`.
+- [x] Add `./internal/platform` to the `test` recipe in `justfile:7`; its only
+      test file has never executed in CI or locally.
+- [x] Add `build` to the `check` recipe so a native compile break cannot land
+      green; install `libgl1-mesa-dev` and `xorg-dev` in `ci.yml`.
+- [x] `git rm -r internal/table/.go-cache` (two build-cache files are tracked)
+      and add an unanchored `.go-cache/` pattern to `.gitignore`, which today
+      only anchors `/.gocache/`.
+- [x] Remove `go = "1.27"` from `.golangci.toml:6`. The pinned
+      golangci-lint v2.13.1 release binary is built with go1.26 and refuses to
+      load the config. CI installs the pinned linter from source with Go 1.27;
+      release binaries built with Go 1.26 still cannot analyze this Go 1.27
+      module even after the explicit setting is removed.
+
+### 11.2 Phase B - correctness defects
+
+- [x] **Open right playfield boundary.** `OuterWalls`
+      (`internal/table/table.go:151-158`) contains `wall_outer_left_lower` and
+      `wall_outer_left_drain` with no mirror image. The region x in (575, 625),
+      y > 915 is unbounded, and the `Drain` box stops at x = 510, so a ball
+      there falls through and is caught only by the emergency
+      `Y > table.Height+80` fallback - roughly 0.9 s late and 82 px below the
+      visible playfield, with drain effects drawn outside the table. Add
+      `wall_outer_right_lower` (625,815)->(510,1015) and
+      `wall_outer_right_drain` (510,1015)->(510,1050).
+- [x] Add a table test that drops a ball from a grid of playfield positions and
+      asserts the drain **sensor** - not the fallback - catches every one.
+- [x] **Zero-impulse contacts score points.** `RayCircle`
+      (`internal/physics/geometry.go:36-44`) returns `TOI=0` whenever the start
+      is inside the circle, regardless of travel direction, and the capsule
+      overlap branch (`collider.go:66-76`) does the same. The solver correctly
+      applies zero impulse but `StepBall` still emits a `Contact`, and
+      `game.go:179-188` scores on the collider-ID prefix alone. A ball grazing
+      or separating from a bumper is awarded `BumperScore` every 75 ms. Reject
+      separating candidates in `earliestCollision` and add an
+      `if contact.Impulse <= 0 { continue }` guard in `stepPlaying`.
+- [x] **Unchecked flipper indexing.** `game.go:114-124` indexes
+      `World.Flippers[0]` and `[1]` in the core step. `New` accepts any
+      exported `*table.Definition`, so a definition with fewer than two
+      flippers panics. Validate in `New`, and prefer named `left`/`right`
+      fields over positional indexing.
+- [x] **Flipper impulse saturates `MaxSpeed`.** `RiseSpeed: 18` rad/s over a
+      105-unit blade gives a 1890 u/s tip speed, and `combineMaterial`
+      (`collider.go:113`) takes `math.Max` of the two restitutions (0.82), for
+      an exit speed up to 1.82x the surface speed - measured at 2515 u/s
+      against the 2600 cap. Shots near the pivot and near the tip clip to the
+      same speed, so aiming is impossible. Lower `RiseSpeed` to about 9-11 and
+      combine restitution geometrically. Add a test asserting a resting ball
+      leaves the blade below `MaxSpeed`.
+- [x] **High score written on every point.** `addScore` (`game.go:320-326`)
+      calls `store.SaveHighScore` whenever the record is beaten, which is every
+      award once it is - from inside the 240 Hz fixed-step loop. On wasm that
+      is a synchronous `localStorage.setItem` per bumper hit. Buffer in memory
+      and flush once on the `GameEnded` transition.
+- [x] **`bankReset` leaks across balls and games.** It is decremented only in
+      `stepPlaying` (`game.go:167-173`) and not reset by `startGame`, so a
+      completed target bank stays frozen through the drain and pops back up
+      mid-play on the next ball. Reset it in `startGame`/`drainBall`, or
+      advance it in `step` for all live states.
+- [x] **Flippers stick down on focus loss.** The framework binds keydown/keyup
+      on `window` with no blur handler, so alt-tabbing while holding A or D
+      holds the flipper engaged for the rest of the session. Dispatch synthetic
+      `keyup` events from `index.html` on `blur` and `visibilitychange`.
+- [x] **`localStorage` access can kill the game.** `store_wasm.go:15,31` let a
+      JS exception (sandboxed iframe, Safari private mode) panic through to
+      `main.go`. Wrap both in a recovering helper that returns a zero value.
+- [x] Prevent the default action for Space and the arrow keys in `index.html`;
+      the framework's own handler covers neither, so charging the plunger
+      scrolls the page.
+- [x] Fix `truncate` (`internal/platform/render.go:310-315`): it slices bytes
+      and so can split a UTF-8 rune, and it panics for `limit < 3`.
+- [x] Restore the responsive layout when leaving fullscreen; the framework
+      writes inline `720px`/`1080px` styles that outrank the stylesheet, so the
+      playfield is cropped rather than scaled on narrow viewports.
+- [x] Clear `statusError` (`internal/platform/app.go:22`) - it is sticky, so
+      one transient audio failure pins the error banner for the session - and
+      stop retrying `SetIcon` every frame after the first failure.
+
+### 11.3 Phase C - design and data model
+
+The table is data-driven in name only. `Bumper.Score`, `Slingshot.Score`,
+`Lane.Score`, and `DropTarget.Score` are populated in `table.New` and never
+read; the game hardcodes `table.BumperScore` and friends and dispatches on
+`strings.HasPrefix(id, "bumper_")`. An ID typo produces a silently inert,
+scoreless feature, and no validation exists anywhere.
+
+- [ ] Give colliders and sensors a `Kind` field (or expose a
+      `map[string]Feature`), look up the score by ID, and delete the prefix
+      matching. This makes the existing `Score` fields load-bearing.
+- [ ] Add a table test asserting every collider and sensor ID resolves to a
+      known feature kind.
+- [ ] Implement or remove the four inlane/outlane sensors
+      (`table.go:204-211`): they match no prefix in `stepPlaying`, so they can
+      never fire, yet they run an `Overlaps` call at 240 Hz.
+- [ ] Resolve `Ball.Mass` (`physics/body.go:14`): it scales only the _reported_
+      `Contact.Impulse` and has no effect on the dynamics, while `Guard`
+      carefully repairs it. Either divide by it in `ResolveStaticContact` or
+      delete it and document the ball as unit-mass.
+- [ ] Replace the `g.World.Lines = g.World.Lines[:0]` reach-in
+      (`game.go:302-310`) with a `World.SetLines` method or an `Enabled` flag
+      on `LineCollider`.
+- [ ] Build slingshot colliders from all three triangle edges; the renderer
+      draws three but only the upper face is solid, and the lower edge
+      overlaps `guide_left_inlane`.
+- [ ] Separate the flipper posts from the flipper capsules - `post_left_flipper`
+      sits 22.4 units from a pivot with a combined radius of 27, i.e. embedded
+      in the flipper body.
+- [ ] Delete the unused exported API: `Vec.Cross`, `Segment.Length`,
+      `Clock.Reset`, `Clock.Alpha`, `CircleSensor`, `OverlappingSensors`,
+      `DefaultSolverIterations`, and `Contact.SurfaceVelocity`/`Flipper`.
+- [ ] Emit `BallDrained` before `BonusAwarded` (`game.go:271,276`); consumers
+      play the effects in order, so the bonus fanfare currently precedes the
+      drain sound.
+- [ ] Give `Loading` a timeout fallback so a missing asset cannot strand the
+      game in a state with no recovery.
+
+### 11.4 Phase D - tests, tooling, and performance
+
+Coverage is 86.9% across `internal/`, but the assertions are shallower than the
+number suggests: `hasEvent` compares only `Event.Kind`, so `ID`, `Points`, and
+`At` are never checked anywhere; the refresh-rate test compares the code
+against itself and passes if the physics is uniformly wrong; and
+`TestTargetBankMultiplierAndLitJackpot` calls `hitTarget` and writes `litLanes`
+directly, bypassing sensor dispatch entirely.
+
+Tests:
+
+- [ ] Assert `Event.ID`, `Points`, and `At`, not just `Kind`.
+- [ ] Add a golden-trajectory regression test pinning actual ball positions;
+      the simulation is deliberately deterministic, so this is nearly free.
+- [ ] Cover the scoring paths in `stepPlaying` (46.9% covered): bumper and
+      slingshot contacts, rollover lighting, drain by sensor, the
+      out-of-bounds recovery, and `bankReset` expiry - through the sensor
+      dispatch rather than around it.
+- [ ] Cover the defensive guards, which are the least-tested code in the
+      repository despite existing solely for bad input: `Ball.Guard` (64.7%),
+      `Vec.Normalized` and `ClampLength` (75%), `Flipper.Step` (72.2%),
+      `RayCircle` (81.8%), `Plunger.Hold` (66.7%). Table tests with `NaN`,
+      `+/-Inf`, zero, and negative values.
+- [ ] Test `cmd/verifydist.verify` (0% covered, and it gates deployment) with
+      `t.TempDir()` fixtures: missing `index.html`, missing canvas, missing
+      `.nojekyll`, zero-byte asset, success.
+- [ ] Test `State.String()` (0% covered); it feeds the wasm accessibility
+      label.
+- [ ] Add the invariant test for the flipper sweep:
+      `(MaxSpeed + RiseSpeed*Length)*FixedStep < BallRadius + Flipper.Radius`.
+      No swept volume is computed for the rotating flipper, so this margin is
+      the only thing preventing tunnelling and nothing currently guards it.
+- [ ] Add a `BenchmarkStepBall`; `earliestCollision` is a full linear scan over
+      ~40 colliders, up to 10 iterations, 240 times a second, with no
+      broadphase.
+
+Tooling and repository:
+
+- [ ] Add a `LICENSE` file. `assets/README.md:86` claims the assets "carry the
+      same project license as the rest of this repository", but no license file
+      exists, so the reference resolves to nothing.
+- [ ] Run golangci-lint for both targets. `justfile:11` runs it only under
+      `GOOS=js GOARCH=wasm`, so `status_native.go` and `store_native.go` are
+      never linted at all.
+- [ ] Decide on Markdown formatting: either install markdownlint and prettier
+      in `ci.yml` and drop `--allow-missing-formatter`, or delete the
+      `[formatter.markdownlint]` block. Neither tool has ever run in CI.
+- [ ] Narrow `treefmt.toml:8` from `assets/**` to `assets/images/**` and
+      `assets/audio/**`; the current pattern also excludes `assets/README.md`.
+- [ ] Add a `concurrency` group and a branch filter to `ci.yml` (every
+      same-repo PR currently runs the gate twice), SHA-pin the third-party
+      `extractions/setup-just` action, and cache the installed tool binaries.
+- [ ] Gate `pages.yml` on the quality job. It currently runs only `just test`
+      and `just web`, so a deploy can publish what CI would have rejected.
+- [ ] Delete the dead `required[]` array in `scripts/build-web.sh:27-63`;
+      `cmd/verifydist` already performs every one of those checks and derives
+      its list from the source instead of a fourth hand-maintained copy.
+- [ ] Fix the systematic darkening in `cmd/genassets/main.go:172`: `finish()`
+      truncates with `uint8(r/ss)` while `blendPixel` rounds, biasing every
+      pixel down. Use `uint8((r + ss/2) / ss)`.
+- [ ] Harden asset determinism: `blendPixel` and `mix` have the `x*y + z` shape
+      that permits FMA contraction on arm64, and byte-comparing PNGs makes the
+      committed assets hostage to `compress/flate` output across Go releases.
+      Compare decoded pixels rather than encoded bytes.
+- [ ] Make `checkAssets` bidirectional; it never notices orphaned files in
+      `assets/` that the generator no longer produces.
+
+Performance:
+
+- [ ] Replace the triple `append` in `render.go:139`, which builds and discards
+      a ~19-element slice every frame purely to iterate three others.
+- [ ] Cache the canvas handle and the last published values in
+      `status_wasm.go`; it crosses the JS boundary about nine times per frame
+      to write values that change only on scoring events.
+- [ ] Allocate the contact slice lazily in `solver.go:80` rather than
+      `make([]Contact, 0, 2)` 240 times a second.
+- [ ] Precompute the cooldown key strings; `"contact:"+id` and `"sensor:"+id`
+      (`game.go:180,202,281`) allocate thousands of times a second.
+- [ ] Handle `devicePixelRatio`: the backing store is pinned at 720x1080 while
+      CSS scales the element, so the game is soft on every HiDPI display.
+      `newViewport` already letterboxes correctly, so this is a one-line JS
+      change.
+- [ ] Scale stroke widths and the plunger-bar insets with the viewport
+      (`render.go:30,234`); they are fixed pixel constants today, giving
+      hairlines in fullscreen and misregistered fills at any scale but 1.
+- [ ] Add touch controls, or drop the mobile affordances (`viewport-fit=cover`,
+      `env(safe-area-inset-*)`) that promise them. The game is currently
+      unplayable on phones and tablets.
+
+## 12. Documentation corrections
+
+Statements in this plan and in the repository that the code does not support:
+
+- [ ] Section 8 claims `just lint` passes; it fails locally for anyone using a
+      golangci-lint release binary (see phase 11.1).
+- [ ] Section 6 implies formatting covers all tracked sources; the Markdown
+      half of `treefmt.toml` has never executed.
+- [ ] Section 8's test list implies full verification, but `internal/platform`
+      is excluded from the test recipe entirely.
+- [ ] `assets/README.md:86` refers to a project license that does not exist.
+- [ ] Section 2's layout omits `cmd/verifydist/`, which is implemented.

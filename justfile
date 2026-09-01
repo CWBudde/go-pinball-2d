@@ -4,7 +4,7 @@ build:
 
 # Run all native unit tests.
 test:
-    go test -v -count=1 ./internal/game ./internal/physics ./internal/table ./cmd/...
+    go test -v -count=1 ./internal/game ./internal/physics ./internal/platform ./internal/table ./cmd/...
 
 # Run golangci-lint with the repository configuration.
 lint:
@@ -43,7 +43,7 @@ run-web: web
     python3 -m http.server --directory dist 8080
 
 # Run the same quality gate used by CI.
-check: fmt-check lint test assets-check web
+check: fmt-check lint test assets-check build web
 
 # Remove reproducible build output.
 clean:

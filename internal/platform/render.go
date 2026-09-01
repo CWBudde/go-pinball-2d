@@ -309,8 +309,15 @@ func (r *renderer) centerText(window draw.Window, text string, centerX, y int, s
 
 func truncate(value string, limit int) string {
 	value = strings.ReplaceAll(value, "\n", " ")
-	if len(value) <= limit {
+	runes := []rune(value)
+	if len(runes) <= limit {
 		return value
 	}
-	return value[:limit-3] + "..."
+	if limit <= 0 {
+		return ""
+	}
+	if limit <= 3 {
+		return strings.Repeat(".", limit)
+	}
+	return string(runes[:limit-3]) + "..."
 }

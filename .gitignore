@@ -3,6 +3,7 @@
 main.wasm
 wasm_exec.js
 /.gocache/
+.go-cache/
 /.tmp/
 *.test
 *.out

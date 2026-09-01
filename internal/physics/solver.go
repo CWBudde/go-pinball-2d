@@ -115,7 +115,11 @@ func (w *World) StepBall(ball *Ball, dt float64) []Contact {
 func (w *World) earliestCollision(ball Ball, delta Vec) (collisionCandidate, bool) {
 	best := collisionCandidate{hit: Hit{TOI: math.Inf(1)}}
 	consider := func(hit Hit, ok bool, id string, material Material, velocity Vec, flipper bool) {
-		if ok && hit.TOI < best.hit.TOI {
+		// Sweeps deliberately report an initial overlap so approaching bodies can
+		// still be resolved. Do not turn an overlap into a contact when the ball
+		// is already stationary relative to, or separating from, the surface.
+		relativeVelocity := ball.Velocity.Sub(velocity)
+		if ok && relativeVelocity.Dot(hit.Normal) < 0 && hit.TOI < best.hit.TOI {
 			best = collisionCandidate{hit: hit, id: id, material: material, velocity: velocity, flipper: flipper}
 		}
 	}

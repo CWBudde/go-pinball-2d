@@ -28,6 +28,21 @@ func TestFlipperMotionAndSurfaceImpulse(t *testing.T) {
 	}
 }
 
+func TestFlipperLaunchStaysBelowMaxSpeed(t *testing.T) {
+	f := NewFlipper("left", Vec{}, 105, 16, 0, -math.Pi/4)
+	f.AngularVelocity = -f.RiseSpeed
+	ball := NewBall(V(105, -29), 14)
+	world := World{Flippers: []*Flipper{f}}
+
+	contacts := world.StepBall(&ball, 1.0/240)
+	if len(contacts) == 0 || contacts[0].Impulse <= 0 {
+		t.Fatalf("moving flipper did not launch resting ball: contacts=%+v ball=%+v", contacts, ball)
+	}
+	if speed := ball.Velocity.Length(); speed <= 0 || speed >= ball.MaxSpeed {
+		t.Fatalf("flipper launch speed = %v, want between zero and MaxSpeed %v", speed, ball.MaxSpeed)
+	}
+}
+
 func TestPlungerChargeLimitsAndRelease(t *testing.T) {
 	p := NewPlunger(V(0, -10))
 	p.ChargeRate = 2

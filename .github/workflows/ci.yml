@@ -20,6 +20,11 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
+      - name: Install native graphics dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends libgl1-mesa-dev xorg-dev
+
       - name: Set up just
         uses: extractions/setup-just@v4
 

@@ -24,7 +24,7 @@ func NewFlipper(id string, pivot Vec, length, radius, restAngle, activeAngle flo
 	return &Flipper{
 		ID: id, Pivot: pivot, Length: length, Radius: radius,
 		Angle: restAngle, RestAngle: restAngle, ActiveAngle: activeAngle,
-		RiseSpeed: 18, ReturnSpeed: 12,
+		RiseSpeed: 10, ReturnSpeed: 12,
 		Material: Material{Restitution: 0.82, Friction: 0.28},
 	}
 }

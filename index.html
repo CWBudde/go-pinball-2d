@@ -148,6 +148,49 @@
 
         const status = document.getElementById("status");
         const canvas = document.getElementById("gameCanvas");
+        const gameplayKeys = new Set([
+          "Space",
+          "ArrowLeft",
+          "ArrowRight",
+          "ArrowUp",
+          "ArrowDown",
+        ]);
+        const flipperKeys = [
+          ["KeyA", "a"],
+          ["KeyD", "d"],
+          ["ArrowLeft", "ArrowLeft"],
+          ["ArrowRight", "ArrowRight"],
+        ];
+
+        window.addEventListener(
+          "keydown",
+          (event) => {
+            if (gameplayKeys.has(event.code)) {
+              event.preventDefault();
+            }
+          },
+          { passive: false },
+        );
+
+        function releaseFlippers() {
+          for (const [code, key] of flipperKeys) {
+            window.dispatchEvent(new KeyboardEvent("keyup", { code, key }));
+          }
+        }
+
+        window.addEventListener("blur", releaseFlippers);
+        document.addEventListener("visibilitychange", releaseFlippers);
+        document.addEventListener("fullscreenchange", () => {
+          if (document.fullscreenElement) {
+            return;
+          }
+          requestAnimationFrame(() => {
+            if (!document.fullscreenElement) {
+              canvas.style.removeProperty("width");
+              canvas.style.removeProperty("height");
+            }
+          });
+        });
 
         function fail(error) {
           console.error(error);

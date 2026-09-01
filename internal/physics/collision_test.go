@@ -29,6 +29,56 @@ func TestSweptCircleCircle(t *testing.T) {
 	}
 }
 
+func TestWorldIgnoresSeparatingOverlaps(t *testing.T) {
+	tests := []struct {
+		name     string
+		world    World
+		ball     Ball
+		velocity Vec
+		wantPos  Vec
+	}{
+		{
+			name: "circle",
+			world: World{Circles: []CircleCollider{{
+				ID: "bumper", Center: Vec{}, Radius: 5,
+			}}},
+			ball:     NewBall(V(6, 0), 2),
+			velocity: V(100, 0),
+			wantPos:  V(7, 0),
+		},
+		{
+			name: "capsule",
+			world: World{Lines: []LineCollider{{
+				ID: "wall", Segment: Segment{A: V(-10, 0), B: V(10, 0)}, Radius: 1,
+			}}},
+			ball:     NewBall(V(0, -2), 2),
+			velocity: V(0, -100),
+			wantPos:  V(0, -3),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.ball.Velocity = test.velocity
+			contacts := test.world.StepBall(&test.ball, 0.01)
+			if len(contacts) != 0 {
+				t.Fatalf("separating overlap emitted contacts: %+v", contacts)
+			}
+			if !test.ball.Position.AlmostEqual(test.wantPos) {
+				t.Fatalf("separating ball position = %+v, want unobstructed motion to %+v", test.ball.Position, test.wantPos)
+			}
+		})
+	}
+}
+
+func TestMaterialRestitutionUsesGeometricMean(t *testing.T) {
+	ball := NewBall(Vec{}, 1)
+	ball.Restitution = 0.25
+	restitution, _ := combineMaterial(&ball, Material{Restitution: 1})
+	if !closeTo(restitution, 0.5) {
+		t.Fatalf("combined restitution = %v, want geometric mean 0.5", restitution)
+	}
+}
+
 func TestResolutionRestitutionFrictionAndCorrection(t *testing.T) {
 	ball := NewBall(V(0, 0), 2)
 	ball.Velocity = V(10, -20)

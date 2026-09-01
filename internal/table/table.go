@@ -155,6 +155,8 @@ func New() *Definition {
 			line("wall_outer_left", 40, 150, 40, 815, 5),
 			line("wall_outer_left_lower", 40, 815, 155, 1015, 5),
 			line("wall_outer_left_drain", 155, 1015, 260, 1050, 5),
+			line("wall_outer_right_lower", 625, 815, 510, 1015, 5),
+			line("wall_outer_right_drain", 510, 1015, 510, 1050, 5),
 		},
 		ShooterLane: []physics.LineCollider{
 			line("wall_shooter_outer_upper", 565, 55, 650, 85, 5),
