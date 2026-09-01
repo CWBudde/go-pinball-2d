@@ -18,3 +18,19 @@ func TestViewportPreservesPortraitAspect(t *testing.T) {
 		}
 	}
 }
+
+func TestOddStrokeWidth(t *testing.T) {
+	for _, test := range []struct {
+		input int
+		want  int
+	}{
+		{input: 0, want: 1},
+		{input: 1, want: 1},
+		{input: 2, want: 3},
+		{input: 3, want: 3},
+	} {
+		if got := oddStrokeWidth(test.input); got != test.want {
+			t.Errorf("oddStrokeWidth(%d) = %d, want %d", test.input, got, test.want)
+		}
+	}
+}

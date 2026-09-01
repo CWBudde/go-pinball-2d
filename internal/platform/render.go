@@ -26,6 +26,8 @@ var requiredImages = []string{
 	"assets/images/particle.png",
 }
 
+const tableOutlineWidth = 3
+
 var (
 	ink     = draw.RGB(.02, .03, .09)
 	cyan    = draw.RGB(.13, .91, 1)
@@ -126,12 +128,12 @@ func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64,
 func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewport) {
 	definition := current.Table
 	for _, line := range append(append(append([]physics.LineCollider{}, definition.OuterWalls...), definition.ShooterLane...), definition.GuideWalls...) {
-		r.line(window, view, line.Segment, cyan)
+		r.thickLine(window, view, line.Segment, cyan, tableOutlineWidth)
 	}
 	for _, sling := range definition.Slingshots {
-		r.thickLine(window, view, physics.Segment{A: sling.Triangle[0], B: sling.Triangle[1]}, magenta, 6)
-		r.thickLine(window, view, physics.Segment{A: sling.Triangle[1], B: sling.Triangle[2]}, magenta, 6)
-		r.thickLine(window, view, physics.Segment{A: sling.Triangle[2], B: sling.Triangle[0]}, magenta, 6)
+		r.thickLine(window, view, physics.Segment{A: sling.Triangle[0], B: sling.Triangle[1]}, magenta, tableOutlineWidth)
+		r.thickLine(window, view, physics.Segment{A: sling.Triangle[1], B: sling.Triangle[2]}, magenta, tableOutlineWidth)
+		r.thickLine(window, view, physics.Segment{A: sling.Triangle[2], B: sling.Triangle[0]}, magenta, tableOutlineWidth)
 	}
 
 	for _, lane := range definition.RolloverLanes {
@@ -142,7 +144,7 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 		}
 		r.spriteCentered(window, "assets/images/lane-light.png", view, midpoint, 28, 56, 90)
 		x, y := view.point(midpoint)
-		window.DrawEllipse(x-view.size(13), y-view.size(6), view.size(26), view.size(12), color)
+		r.thickEllipse(window, x-view.size(13), y-view.size(6), view.size(26), view.size(12), color, tableOutlineWidth)
 	}
 
 	for _, bumper := range definition.Bumpers {
@@ -216,7 +218,7 @@ func (r *renderer) drawState(window draw.Window, current *game.Game, view viewpo
 	case game.BallReady:
 		r.centerText(window, "HOLD SPACE / DOWN TO CHARGE", centerX, view.y(720), float32(math.Max(.72, view.scale*.78)), amber)
 		barWidth := view.size(260)
-		window.DrawRect(centerX-barWidth/2, view.y(750), barWidth, view.size(16), draw.White)
+		r.thickRect(window, centerX-barWidth/2, view.y(750), barWidth, view.size(16), draw.White, tableOutlineWidth)
 		window.FillRect(centerX-barWidth/2+2, view.y(750)+2, int(float64(barWidth-4)*current.PlungerCharge), max(1, view.size(16)-4), magenta)
 	case game.Paused:
 		window.FillRect(view.offsetX, view.offsetY, view.width, view.height, draw.RGBA(0, 0, 0, .68))
@@ -232,13 +234,7 @@ func (r *renderer) drawState(window draw.Window, current *game.Game, view viewpo
 	}
 }
 
-func (r *renderer) line(window draw.Window, view viewport, segment physics.Segment, color draw.Color) {
-	ax, ay := view.point(segment.A)
-	bx, by := view.point(segment.B)
-	window.DrawLine(ax, ay, bx, by, color)
-}
-
-func (r *renderer) thickLine(window draw.Window, view viewport, segment physics.Segment, color draw.Color, logicalWidth float64) {
+func (r *renderer) thickLine(window draw.Window, view viewport, segment physics.Segment, color draw.Color, width int) {
 	ax, ay := view.point(segment.A)
 	bx, by := view.point(segment.B)
 	dx, dy := float64(bx-ax), float64(by-ay)
@@ -246,16 +242,35 @@ func (r *renderer) thickLine(window draw.Window, view viewport, segment physics.
 	if length == 0 {
 		return
 	}
-	width := max(3, view.size(logicalWidth))
-	if width%2 == 0 {
-		width++
-	}
+	width = oddStrokeWidth(width)
 	normalX, normalY := -dy/length, dx/length
 	for offset := -width / 2; offset <= width/2; offset++ {
 		x := int(math.Round(normalX * float64(offset)))
 		y := int(math.Round(normalY * float64(offset)))
 		window.DrawLine(ax+x, ay+y, bx+x, by+y, color)
 	}
+}
+
+func (r *renderer) thickEllipse(window draw.Window, x, y, width, height int, color draw.Color, strokeWidth int) {
+	strokeWidth = oddStrokeWidth(strokeWidth)
+	for offset := -strokeWidth / 2; offset <= strokeWidth/2; offset++ {
+		window.DrawEllipse(x-offset, y-offset, width+2*offset, height+2*offset, color)
+	}
+}
+
+func (r *renderer) thickRect(window draw.Window, x, y, width, height int, color draw.Color, strokeWidth int) {
+	strokeWidth = oddStrokeWidth(strokeWidth)
+	for offset := -strokeWidth / 2; offset <= strokeWidth/2; offset++ {
+		window.DrawRect(x-offset, y-offset, width+2*offset, height+2*offset, color)
+	}
+}
+
+func oddStrokeWidth(width int) int {
+	width = max(1, width)
+	if width%2 == 0 {
+		width++
+	}
+	return width
 }
 
 func (r *renderer) spriteCentered(window draw.Window, path string, view viewport, center physics.Vec, width, height float64, rotation int) {

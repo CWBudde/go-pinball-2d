@@ -9,7 +9,8 @@ Build a single-player, portrait-oriented pinball table with the working title
 - Spring-loaded launch plunger and shooter lane
 - Three pop bumpers
 - Two slingshots
-- Clearly visible, thick outlines for both triangular slingshots
+- Consistent three-pixel outlines for table walls, lanes, indicators, and both
+  triangular slingshots
 - Inlanes, outlanes, rollover lanes, targets, walls, posts, and drain
 - Three balls per game
 - Score, bonus multiplier, high score, pause, ball-lost, and game-over states
