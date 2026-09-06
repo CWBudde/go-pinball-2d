@@ -1,0 +1,33 @@
+name: Native build
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Native build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Go from go.mod
+        id: go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Set up just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Install native graphics dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends libgl1-mesa-dev xorg-dev
+
+      - name: Run native build
+        run: just build

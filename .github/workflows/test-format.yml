@@ -1,0 +1,58 @@
+name: Formatting
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Go from go.mod
+        id: go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Set up just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Add Go tools to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pinned format binaries
+        id: format-tools
+        uses: actions/cache@v5.0.3
+        with:
+          path: |
+            ~/go/bin/treefmt
+            ~/go/bin/gofumpt
+            ~/go/bin/gci
+          key: ${{ runner.os }}-${{ runner.arch }}-format-tools-treefmt-release-2.5.0-gofumpt-0.11.0-gci-0.14.0
+
+      - name: Install pinned treefmt release
+        if: steps.format-tools.outputs.cache-hit != 'true'
+        run: |
+          # The source module contains an emoji filename rejected by Go's module ZIP validation.
+          archive="$RUNNER_TEMP/treefmt_2.5.0_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            https://github.com/numtide/treefmt/releases/download/v2.5.0/treefmt_2.5.0_linux_amd64.tar.gz
+          echo "95f707bf9666d08b50888b116768fd77f042ad5af92aa3b795f063160e72758f  $archive" | sha256sum --check
+          mkdir -p "$(go env GOPATH)/bin"
+          tar -xzf "$archive" -C "$(go env GOPATH)/bin" treefmt
+
+      - name: Install pinned Go formatters
+        if: steps.format-tools.outputs.cache-hit != 'true'
+        run: |
+          go install mvdan.cc/gofumpt@v0.11.0
+          go install github.com/daixiang0/gci@v0.14.0
+
+      - name: Run formatting
+        run: just fmt-check

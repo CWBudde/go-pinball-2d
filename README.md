@@ -5,6 +5,9 @@ uses [`prototype/draw`](https://github.com/gonutz/prototype) for browser input,
 rendering, and audio, with a deterministic fixed-step physics simulation behind
 it.
 
+[Try online](https://cwbudde.github.io/go-pinball-2d/) — the browser version is
+deployed automatically by CI to GitHub Pages.
+
 ## Play locally
 
 Install Go 1.27, [`just`](https://just.systems/), and Python 3, then run:
