@@ -264,6 +264,9 @@ func (r *renderer) thickLine(window draw.Window, view viewport, segment physics.
 		return
 	}
 	width = view.stroke(width)
+	if drawCanvasLine(ax, ay, bx, by, color, width) {
+		return
+	}
 	normalX, normalY := -dy/length, dx/length
 	for offset := -width / 2; offset <= width/2; offset++ {
 		x := int(math.Round(normalX * float64(offset)))
@@ -274,6 +277,9 @@ func (r *renderer) thickLine(window draw.Window, view viewport, segment physics.
 
 func (r *renderer) thickEllipse(window draw.Window, x, y, width, height int, color draw.Color, strokeWidth int) {
 	strokeWidth = oddStrokeWidth(strokeWidth)
+	if drawCanvasEllipse(x, y, width, height, color, strokeWidth) {
+		return
+	}
 	for offset := -strokeWidth / 2; offset <= strokeWidth/2; offset++ {
 		window.DrawEllipse(x-offset, y-offset, width+2*offset, height+2*offset, color)
 	}
@@ -281,6 +287,9 @@ func (r *renderer) thickEllipse(window draw.Window, x, y, width, height int, col
 
 func (r *renderer) thickRect(window draw.Window, x, y, width, height int, color draw.Color, strokeWidth int) {
 	strokeWidth = oddStrokeWidth(strokeWidth)
+	if drawCanvasRect(x, y, width, height, color, strokeWidth) {
+		return
+	}
 	for offset := -strokeWidth / 2; offset <= strokeWidth/2; offset++ {
 		window.DrawRect(x-offset, y-offset, width+2*offset, height+2*offset, color)
 	}
