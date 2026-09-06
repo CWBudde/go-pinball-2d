@@ -49,6 +49,8 @@ type Game struct {
 	pendingRight   bool
 	bankReset      float64
 	events         eventQueue
+	contactKeys    map[string]string
+	sensorKeys     map[string]string
 }
 
 func New(def *table.Definition, store HighScoreStore) *Game {
@@ -65,6 +67,16 @@ func New(def *table.Definition, store HighScoreStore) *Game {
 		leftFlipper: leftFlipper, rightFlipper: rightFlipper,
 		targetsDown: make(map[string]bool), litLanes: make(map[string]bool),
 		BonusMultiplier: 1,
+		contactKeys:     make(map[string]string),
+		sensorKeys:      make(map[string]string),
+	}
+	for id, feature := range def.Features {
+		switch feature.Kind {
+		case table.FeatureBumper, table.FeatureSlingshot:
+			g.contactKeys[id] = "contact:" + id
+		case table.FeatureRollover, table.FeatureDropTarget:
+			g.sensorKeys[id] = "sensor:" + id
+		}
 	}
 	g.savedHighScore = max(0, store.LoadHighScore())
 	g.HighScore = g.savedHighScore
@@ -240,7 +252,7 @@ func (g *Game) stepPlaying(dt float64) {
 			g.drainBall()
 			return
 		case table.FeatureRollover:
-			if g.cooldowns.Allow("sensor:"+id, .5) {
+			if g.cooldowns.Allow(g.sensorKeys[id], .5) {
 				g.litLanes[id] = true
 				g.award(feature.Score, RolloverLit, id, g.Ball.Position)
 			}
@@ -267,7 +279,7 @@ func (g *Game) scoreContacts(contacts []physics.Contact) {
 		if !ok || (feature.Kind != table.FeatureBumper && feature.Kind != table.FeatureSlingshot) {
 			continue
 		}
-		if !g.cooldowns.Allow("contact:"+contact.ColliderID, .075) {
+		if !g.cooldowns.Allow(g.contactKeys[contact.ColliderID], .075) {
 			continue
 		}
 		switch feature.Kind {
@@ -350,7 +362,7 @@ func (g *Game) hitTarget(id string) {
 	if !ok || feature.Kind != table.FeatureDropTarget {
 		return
 	}
-	if g.targetsDown[id] || !g.cooldowns.Allow("sensor:"+id, .2) {
+	if g.targetsDown[id] || !g.cooldowns.Allow(g.sensorKeys[id], .2) {
 		return
 	}
 	g.targetsDown[id] = true

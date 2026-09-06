@@ -26,3 +26,49 @@ func TestVectorAndGeometry(t *testing.T) {
 		t.Fatalf("endpoint distance = %v", got)
 	}
 }
+
+func TestVectorNormalizationAndClampingRejectInvalidValues(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		in   Vec
+		want Vec
+	}{
+		{"zero", Vec{}, Vec{}},
+		{"NaN", V(math.NaN(), 1), Vec{}},
+		{"positive infinity", V(math.Inf(1), 1), Vec{}},
+		{"negative infinity", V(math.Inf(-1), 1), Vec{}},
+		{"finite", V(3, 4), V(.6, .8)},
+	} {
+		t.Run("normalized "+test.name, func(t *testing.T) {
+			if got := test.in.Normalized(); !got.AlmostEqual(test.want) {
+				t.Fatalf("Normalized() = %+v, want %+v", got, test.want)
+			}
+		})
+	}
+
+	vector := V(3, 4)
+	for _, test := range []struct {
+		name string
+		max  float64
+		want Vec
+	}{
+		{"zero", 0, Vec{}},
+		{"negative", -1, Vec{}},
+		{"NaN", math.NaN(), Vec{}},
+		{"negative infinity", math.Inf(-1), Vec{}},
+		{"positive infinity", math.Inf(1), vector},
+		{"shorter", 2, V(1.2, 1.6)},
+		{"longer", 10, vector},
+	} {
+		t.Run("clamp "+test.name, func(t *testing.T) {
+			if got := vector.ClampLength(test.max); !got.AlmostEqual(test.want) {
+				t.Fatalf("ClampLength(%v) = %+v, want %+v", test.max, got, test.want)
+			}
+		})
+	}
+	for _, vector := range []Vec{V(math.NaN(), 1), V(math.Inf(1), 1), V(math.Inf(-1), 1)} {
+		if got := vector.ClampLength(10); got != (Vec{}) {
+			t.Errorf("invalid vector %+v clamped to %+v, want zero", vector, got)
+		}
+	}
+}

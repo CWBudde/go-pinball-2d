@@ -8,19 +8,21 @@ test:
 
 # Run golangci-lint with the repository configuration.
 lint:
-    GOOS=js GOARCH=wasm golangci-lint run
+	golangci-lint run
+	GOOS=js GOARCH=wasm golangci-lint run
 
 # Apply safe linter fixes.
 lint-fix:
-    GOOS=js GOARCH=wasm golangci-lint run --fix
+	golangci-lint run --fix
+	GOOS=js GOARCH=wasm golangci-lint run --fix
 
-# Format Go and Markdown sources using the same treefmt pipeline as CI.
+# Format Go sources using the same treefmt pipeline as CI.
 fmt:
-    treefmt . --allow-missing-formatter --no-cache
+	treefmt . --no-cache
 
 # Fail when formatting would change a tracked source file.
 fmt-check:
-    treefmt --allow-missing-formatter --no-cache --fail-on-change
+	treefmt --no-cache --fail-on-change
 
 # Rebuild every original game asset.
 assets:

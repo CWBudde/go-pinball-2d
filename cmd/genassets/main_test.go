@@ -3,7 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"image"
+	"image/color"
 	"image/png"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,6 +53,65 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 			validateWAV(t, file.path, file.data)
 		}
 	}
+}
+
+func TestPNGAssetComparisonUsesDecodedPixels(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 1))
+	img.SetNRGBA(0, 0, color.NRGBA{R: 10, G: 20, B: 30, A: 255})
+	img.SetNRGBA(1, 0, color.NRGBA{R: 40, G: 50, B: 60, A: 128})
+	encode := func(level png.CompressionLevel) []byte {
+		t.Helper()
+		var data bytes.Buffer
+		if err := (&png.Encoder{CompressionLevel: level}).Encode(&data, img); err != nil {
+			t.Fatal(err)
+		}
+		return data.Bytes()
+	}
+	fast := encode(png.NoCompression)
+	compact := encode(png.BestCompression)
+	if bytes.Equal(fast, compact) {
+		t.Fatal("fixture encodings unexpectedly match")
+	}
+	equal, err := assetDataEqual("images/test.png", fast, compact)
+	if err != nil || !equal {
+		t.Fatalf("same decoded pixels = %t, error %v", equal, err)
+	}
+	img.SetNRGBA(1, 0, color.NRGBA{R: 41, G: 50, B: 60, A: 128})
+	changed := encode(png.BestCompression)
+	equal, err = assetDataEqual("images/test.png", changed, compact)
+	if err != nil || equal {
+		t.Fatalf("changed decoded pixels = %t, error %v", equal, err)
+	}
+}
+
+func TestCheckAssetsRejectsOrphanedFiles(t *testing.T) {
+	root := t.TempDir()
+	files := []generatedFile{
+		{path: "images/fixture.png", data: encodedFixturePNG(t)},
+		{path: "audio/fixture.wav", data: []byte("sound")},
+	}
+	if err := writeAssets(root, files); err != nil {
+		t.Fatal(err)
+	}
+	orphan := filepath.Join(root, "images", "old.png")
+	if err := os.WriteFile(orphan, []byte("orphan"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := checkAssets(root, files)
+	if err == nil || !strings.Contains(err.Error(), "orphaned") || !strings.Contains(err.Error(), orphan) {
+		t.Fatalf("checkAssets() error = %v, want orphaned file", err)
+	}
+}
+
+func encodedFixturePNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 1, 1))
+	img.SetNRGBA(0, 0, color.NRGBA{R: 1, G: 2, B: 3, A: 255})
+	var data bytes.Buffer
+	if err := png.Encode(&data, img); err != nil {
+		t.Fatal(err)
+	}
+	return data.Bytes()
 }
 
 type imageSize struct{ width, height int }

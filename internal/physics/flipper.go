@@ -53,6 +53,12 @@ func (f *Flipper) Step(dt float64) {
 	if speed < 0 || !finite(speed) {
 		speed = 0
 	}
+	if !finite(target) {
+		target = 0
+	}
+	if !finite(f.Angle) {
+		f.Angle = target
+	}
 	old := f.Angle
 	difference := target - f.Angle
 	step := speed * dt
@@ -63,7 +69,7 @@ func (f *Flipper) Step(dt float64) {
 	}
 	f.AngularVelocity = (f.Angle - old) / dt
 	if !finite(f.AngularVelocity) || !finite(f.Angle) {
-		f.Angle = f.RestAngle
+		f.Angle = target
 		f.AngularVelocity = 0
 	}
 }

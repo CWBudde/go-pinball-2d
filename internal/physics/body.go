@@ -31,7 +31,11 @@ func NewBall(position Vec, radius float64) Ball {
 func (b *Ball) Guard(safePosition Vec) bool {
 	bad := !b.Position.IsFinite() || !b.Velocity.IsFinite()
 	if !b.Position.IsFinite() {
-		b.Position = safePosition
+		if safePosition.IsFinite() {
+			b.Position = safePosition
+		} else {
+			b.Position = Vec{}
+		}
 	}
 	if !b.Velocity.IsFinite() {
 		b.Velocity = Vec{}

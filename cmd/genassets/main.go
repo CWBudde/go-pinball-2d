@@ -60,13 +60,19 @@ func (c *canvas) blendPixel(x, y int, src color.NRGBA, opacity float64) {
 	i := c.img.PixOffset(x, y)
 	sa := float64(src.A) / 255 * opacity
 	da := float64(c.img.Pix[i+3]) / 255
-	oa := sa + da*(1-sa)
+	destinationAlpha := multiply(da, 1-sa)
+	oa := sa + destinationAlpha
 	if oa == 0 {
 		return
 	}
-	c.img.Pix[i+0] = uint8(clamp((float64(src.R)*sa+float64(c.img.Pix[i+0])*da*(1-sa))/oa, 0, 255) + 0.5)
-	c.img.Pix[i+1] = uint8(clamp((float64(src.G)*sa+float64(c.img.Pix[i+1])*da*(1-sa))/oa, 0, 255) + 0.5)
-	c.img.Pix[i+2] = uint8(clamp((float64(src.B)*sa+float64(c.img.Pix[i+2])*da*(1-sa))/oa, 0, 255) + 0.5)
+	blend := func(source, destination uint8) uint8 {
+		sourceContribution := multiply(float64(source), sa)
+		destinationContribution := multiply(float64(destination), destinationAlpha)
+		return uint8(clamp((sourceContribution+destinationContribution)/oa, 0, 255) + 0.5)
+	}
+	c.img.Pix[i+0] = blend(src.R, c.img.Pix[i+0])
+	c.img.Pix[i+1] = blend(src.G, c.img.Pix[i+1])
+	c.img.Pix[i+2] = blend(src.B, c.img.Pix[i+2])
 	c.img.Pix[i+3] = uint8(oa*255 + 0.5)
 }
 
@@ -181,7 +187,7 @@ func (c *canvas) finish() *image.NRGBA {
 				}
 			}
 			i := out.PixOffset(x, y)
-			out.Pix[i+0], out.Pix[i+1], out.Pix[i+2], out.Pix[i+3] = uint8(r/ss), uint8(g/ss), uint8(b/ss), uint8(a/ss)
+			out.Pix[i+0], out.Pix[i+1], out.Pix[i+2], out.Pix[i+3] = uint8((r+ss/2)/ss), uint8((g+ss/2)/ss), uint8((b+ss/2)/ss), uint8((a+ss/2)/ss)
 		}
 	}
 	return out
@@ -687,21 +693,74 @@ func writeAssets(root string, files []generatedFile) error {
 
 func checkAssets(root string, files []generatedFile) error {
 	var problems []string
+	expectedPaths := make(map[string]struct{}, len(files))
 	for _, expected := range files {
+		expectedPaths[expected.path] = struct{}{}
 		path := filepath.Join(root, filepath.FromSlash(expected.path))
 		actual, err := os.ReadFile(path)
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s: %v", path, err))
 			continue
 		}
-		if !bytes.Equal(actual, expected.data) {
+		equal, compareErr := assetDataEqual(expected.path, actual, expected.data)
+		if compareErr != nil {
+			problems = append(problems, fmt.Sprintf("%s: %v", path, compareErr))
+		} else if !equal {
 			problems = append(problems, path+": stale (run go run ./cmd/genassets)")
+		}
+	}
+	for _, directory := range []string{"images", "audio"} {
+		directoryPath := filepath.Join(root, directory)
+		err := filepath.WalkDir(directoryPath, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			relative = filepath.ToSlash(relative)
+			if _, ok := expectedPaths[relative]; !ok {
+				problems = append(problems, path+": orphaned (remove it or add it to the generator)")
+			}
+			return nil
+		})
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("scan %s: %v", directoryPath, err))
 		}
 	}
 	if len(problems) > 0 {
 		return fmt.Errorf("asset check failed:\n  %s", strings.Join(problems, "\n  "))
 	}
 	return nil
+}
+
+func assetDataEqual(path string, actual, expected []byte) (bool, error) {
+	if !strings.HasSuffix(path, ".png") {
+		return bytes.Equal(actual, expected), nil
+	}
+	actualImage, err := png.Decode(bytes.NewReader(actual))
+	if err != nil {
+		return false, fmt.Errorf("decode committed PNG: %w", err)
+	}
+	expectedImage, err := png.Decode(bytes.NewReader(expected))
+	if err != nil {
+		return false, fmt.Errorf("decode generated PNG: %w", err)
+	}
+	if actualImage.Bounds() != expectedImage.Bounds() {
+		return false, nil
+	}
+	for y := actualImage.Bounds().Min.Y; y < actualImage.Bounds().Max.Y; y++ {
+		for x := actualImage.Bounds().Min.X; x < actualImage.Bounds().Max.X; x++ {
+			if color.NRGBAModel.Convert(actualImage.At(x, y)) != color.NRGBAModel.Convert(expectedImage.At(x, y)) {
+				return false, nil
+			}
+		}
+	}
+	return true, nil
 }
 
 func main() {
@@ -751,9 +810,15 @@ func insidePolygon(x, y float64, points [][2]float64) bool {
 
 func mix(a, b color.NRGBA, t float64) color.NRGBA {
 	t = clamp(t, 0, 1)
-	lerp := func(x, y uint8) uint8 { return uint8(float64(x) + (float64(y)-float64(x))*t + .5) }
+	lerp := func(x, y uint8) uint8 {
+		delta := multiply(float64(y)-float64(x), t)
+		return uint8(float64(x) + delta + .5)
+	}
 	return color.NRGBA{R: lerp(a.R, b.R), G: lerp(a.G, b.G), B: lerp(a.B, b.B), A: lerp(a.A, b.A)}
 }
+
+//go:noinline
+func multiply(a, b float64) float64 { return a * b }
 
 func smoothAttack(t, length float64) float64 {
 	if t >= length {

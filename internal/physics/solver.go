@@ -83,7 +83,7 @@ func (w *World) StepBall(ball *Ball, dt float64) []Contact {
 	if iterations <= 0 {
 		iterations = defaultSolverIterations
 	}
-	contacts := make([]Contact, 0, 2)
+	var contacts []Contact
 
 	for i := 0; i < iterations && remaining > 1e-8; i++ {
 		delta := ball.Velocity.Mul(remaining)

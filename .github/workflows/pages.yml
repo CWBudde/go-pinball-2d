@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -28,13 +28,33 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Set up just
-        uses: extractions/setup-just@v4
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
 
-      - name: Test game core
-        run: just test
+      - name: Install native graphics dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends libgl1-mesa-dev xorg-dev
 
-      - name: Build browser distribution
-        run: just web
+      - name: Add Go tools to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pinned quality-tool binaries
+        id: quality-tools
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-quality-tools-treefmt-2.5.0-gofumpt-0.11.0-gci-0.14.0-golangci-2.13.1
+
+      - name: Install pinned quality tools with Go 1.27
+        if: steps.quality-tools.outputs.cache-hit != 'true'
+        run: |
+          go install github.com/numtide/treefmt/v2/cmd/treefmt@v2.5.0
+          go install mvdan.cc/gofumpt@v0.11.0
+          go install github.com/daixiang0/gci@v0.14.0
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
+
+      - name: Run repository quality gate
+        run: just check
 
       - name: Configure Pages
         uses: actions/configure-pages@v6.0.0
@@ -49,7 +69,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: quality
     steps:
       - name: Deploy Pages
         id: deployment

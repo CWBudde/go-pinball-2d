@@ -29,6 +29,7 @@ func Run() error {
 }
 
 func (a *app) update(window draw.Window) {
+	prepareCanvas()
 	a.clearStatusError()
 
 	now := time.Now()

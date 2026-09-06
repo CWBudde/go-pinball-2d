@@ -36,8 +36,8 @@ is retained in browser storage.
 The common repository tasks are exposed through `just`:
 
 ```sh
-just fmt          # apply Go and Markdown formatting
-just lint         # run golangci-lint for the browser target
+just fmt          # apply Go formatting
+just lint         # run golangci-lint for native and browser targets
 just test         # run native simulation and tooling tests
 just assets-check # verify generated assets are reproducible
 just web          # build and verify dist/

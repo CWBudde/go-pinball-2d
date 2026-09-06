@@ -79,9 +79,7 @@ func TestFlipperControlsFollowNamedDefinitions(t *testing.T) {
 	if !left.Engaged || right.Engaged {
 		t.Fatalf("left input engaged flippers: left=%t right=%t", left.Engaged, right.Engaged)
 	}
-	if !hasEventWithID(events, FlipperFired, "flipper_left") {
-		t.Fatalf("left input events = %#v, want named left-flipper event", events)
-	}
+	assertEvents(t, events, Event{Kind: FlipperFired, ID: "flipper_left", At: left.Pivot})
 }
 
 func TestThreeBallStateTransitionsAndBonus(t *testing.T) {
@@ -97,9 +95,10 @@ func TestThreeBallStateTransitionsAndBonus(t *testing.T) {
 		if g.State != BallLost || g.Score-before != 200 {
 			t.Fatalf("ball %d drain = state %v bonus %d", ball, g.State, g.Score-before)
 		}
-		if !hasEvent(events, BallDrained) || !hasEvent(events, BonusAwarded) {
-			t.Fatalf("ball %d missing drain/bonus event: %#v", ball, events)
-		}
+		assertEvents(t, events,
+			Event{Kind: BallDrained, At: g.Ball.Position},
+			Event{Kind: BonusAwarded, Points: 200},
+		)
 		advanceFor(g, ballLostDelay+.05, Input{})
 		if ball < 3 && g.State != BallReady {
 			t.Fatalf("after ball %d = %v, want BallReady", ball, g.State)
@@ -122,12 +121,10 @@ func TestDrainEventPrecedesBonusEvent(t *testing.T) {
 	g.Ball.Position = physics.V(360, 1060)
 
 	events := g.Update(FixedStep, Input{})
-	if len(events) != 2 {
-		t.Fatalf("drain events = %#v, want BallDrained then BonusAwarded", events)
-	}
-	if events[0].Kind != BallDrained || events[1].Kind != BonusAwarded {
-		t.Fatalf("drain event order = [%v, %v], want [%v, %v]", events[0].Kind, events[1].Kind, BallDrained, BonusAwarded)
-	}
+	assertEvents(t, events,
+		Event{Kind: BallDrained, At: g.Ball.Position},
+		Event{Kind: BonusAwarded, Points: 200},
+	)
 }
 
 func TestLoadingFallsBackAfterTimeout(t *testing.T) {
@@ -144,17 +141,39 @@ func TestLoadingFallsBackAfterTimeout(t *testing.T) {
 
 func TestTargetBankMultiplierAndLitJackpot(t *testing.T) {
 	g := newStartedGame(t)
-	launchBall(t, g)
-	g.litLanes["rollover_left"] = true
-	g.hitTarget(g.Table.DropTargets[0].ID)
-	if g.Score != table.DropTargetScore+jackpotPoints {
-		t.Fatalf("score = %d, want target plus jackpot", g.Score)
+	g.setState(Playing)
+	g.World = physics.World{SafePosition: g.Table.BallSpawn}
+	g.Ball.Active = true
+
+	lane := g.Table.RolloverLanes[0]
+	g.Ball.Position = lane.Segment.A.Add(lane.Segment.B).Mul(.5)
+	events := g.Update(FixedStep, Input{})
+	assertEvents(t, events, Event{Kind: RolloverLit, ID: lane.ID, Points: lane.Score, At: g.Ball.Position})
+	if !g.LaneLit(lane.ID) {
+		t.Fatalf("rollover %q was not lit through sensor dispatch", lane.ID)
+	}
+
+	target := g.Table.DropTargets[0]
+	g.Ball.Position = target.Segment.A.Add(target.Segment.B).Mul(.5)
+	events = g.Update(FixedStep, Input{})
+	assertEvents(t, events,
+		Event{Kind: TargetDown, ID: target.ID, Points: target.Score, At: g.Ball.Position},
+		Event{Kind: JackpotAwarded, ID: target.ID, Points: jackpotPoints, At: g.Ball.Position},
+	)
+	if g.Score != lane.Score+target.Score+jackpotPoints {
+		t.Fatalf("score = %d, want rollover, target, and jackpot", g.Score)
 	}
 	if len(g.litLanes) != 0 {
 		t.Fatal("jackpot did not consume lit lanes")
 	}
-	for _, target := range g.Table.DropTargets[1:] {
-		g.hitTarget(target.ID)
+	for i, target := range g.Table.DropTargets[1:] {
+		g.Ball.Position = target.Segment.A.Add(target.Segment.B).Mul(.5)
+		events = g.Update(FixedStep, Input{})
+		want := []Event{{Kind: TargetDown, ID: target.ID, Points: target.Score, At: g.Ball.Position}}
+		if i == len(g.Table.DropTargets)-2 {
+			want = append(want, Event{Kind: BankCompleted, Points: 2})
+		}
+		assertEvents(t, events, want...)
 	}
 	if g.BonusMultiplier != 2 {
 		t.Fatalf("multiplier = %d, want 2", g.BonusMultiplier)
@@ -288,9 +307,7 @@ func TestSeparatingBumperContactDoesNotScore(t *testing.T) {
 	if g.Score != 0 {
 		t.Fatalf("separating zero-impulse bumper contact scored %d points", g.Score)
 	}
-	if events := g.events.drain(); hasEvent(events, BumperHit) {
-		t.Fatalf("separating zero-impulse bumper contact emitted hit event: %#v", events)
-	}
+	assertEvents(t, g.events.drain())
 
 	contact.Impulse = 1
 	g.scoreContacts([]physics.Contact{contact})
@@ -316,6 +333,104 @@ func TestContactScoringUsesFeatureMetadataInsteadOfIDPrefixes(t *testing.T) {
 	events := g.events.drain()
 	if len(events) != 1 || events[0].Kind != BumperHit || events[0].ID != id || events[0].Points != score || events[0].At != point {
 		t.Fatalf("feature contact events = %#v", events)
+	}
+}
+
+func TestStepPlayingScoresBumperAndSlingshotContacts(t *testing.T) {
+	tests := []struct {
+		name      string
+		featureID string
+		kind      EventKind
+		world     physics.World
+		score     int
+		wantAt    physics.Vec
+	}{
+		{
+			name: "bumper", featureID: "bumper_left", kind: BumperHit, score: table.BumperScore,
+			world: physics.World{Circles: []physics.CircleCollider{{
+				ID: "bumper_left", Center: physics.Vec{}, Radius: 10,
+				Material: physics.Material{Restitution: 1},
+			}}},
+			wantAt: physics.V(-10, 0),
+		},
+		{
+			name: "slingshot", featureID: "slingshot_left", kind: SlingshotHit, score: table.SlingshotScore,
+			world: physics.World{Lines: []physics.LineCollider{{
+				ID: "slingshot_left", Segment: physics.Segment{A: physics.V(0, -20), B: physics.V(0, 20)},
+				Radius: 10, Material: physics.Material{Restitution: 1},
+			}}},
+			wantAt: physics.Vec{},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := newStartedGame(t)
+			g.setState(Playing)
+			g.sensors = nil
+			g.World = test.world
+			g.Ball = physics.NewBall(physics.V(-30, 0), 1)
+			g.Ball.Velocity = physics.V(2600, 0)
+			g.stepPlaying(.01)
+			if g.Score != test.score {
+				t.Fatalf("score = %d, want %d", g.Score, test.score)
+			}
+			events := g.events.drain()
+			if len(events) != 1 {
+				t.Fatalf("events = %#v, want one contact event", events)
+			}
+			assertEvents(t, events, Event{Kind: test.kind, ID: test.featureID, Points: test.score, At: test.wantAt})
+		})
+	}
+}
+
+func TestStepPlayingDispatchesDrainAndRecoversOutOfBoundsBall(t *testing.T) {
+	t.Run("drain sensor", func(t *testing.T) {
+		g := newStartedGame(t)
+		g.setState(Playing)
+		g.World = physics.World{SafePosition: g.Table.BallSpawn}
+		g.Ball.Position = g.Table.Drain.Min.Add(g.Table.Drain.Max).Mul(.5)
+		g.stepPlaying(FixedStep)
+		if g.State != BallLost || g.BallsRemaining != 2 {
+			t.Fatalf("drain = state %v balls %d", g.State, g.BallsRemaining)
+		}
+		assertEvents(t, g.events.drain(), Event{Kind: BallDrained, At: g.Ball.Position})
+	})
+
+	t.Run("out of bounds", func(t *testing.T) {
+		g := newStartedGame(t)
+		g.setState(Playing)
+		g.World = physics.World{SafePosition: g.Table.BallSpawn}
+		g.sensors = nil
+		g.Ball.Position = physics.V(-101, 500)
+		g.Ball.Velocity = physics.V(-20, 3)
+		g.stepPlaying(FixedStep)
+		if g.Ball.Position != g.Table.BallSpawn || g.Ball.Velocity != (physics.Vec{}) {
+			t.Fatalf("out-of-bounds recovery = %+v", g.Ball)
+		}
+		assertEvents(t, g.events.drain())
+	})
+}
+
+func TestStepPlayingExpiresTargetBankReset(t *testing.T) {
+	g := newStartedGame(t)
+	g.setState(Playing)
+	g.sensors = nil
+	target := g.Table.DropTargets[0]
+	g.targetsDown[target.ID] = true
+	g.rebuildTargetColliders()
+	g.bankReset = FixedStep / 2
+	g.Ball.Position = physics.V(360, 600)
+	g.Ball.Velocity = physics.Vec{}
+	g.stepPlaying(FixedStep)
+	if g.bankReset > 0 || len(g.targetsDown) != 0 {
+		t.Fatalf("expired bank reset = timer %v targets %#v", g.bankReset, g.targetsDown)
+	}
+	found := false
+	for _, collider := range g.World.Lines {
+		found = found || collider.ID == target.ID
+	}
+	if !found {
+		t.Fatalf("target collider %q was not restored", target.ID)
 	}
 }
 
@@ -395,20 +510,14 @@ func TestScriptedSimulationIsConsistentAcrossRefreshRates(t *testing.T) {
 	}
 }
 
-func hasEvent(events []Event, kind EventKind) bool {
-	for _, event := range events {
-		if event.Kind == kind {
-			return true
+func assertEvents(t *testing.T, got []Event, want ...Event) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("events = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("event %d = %#v, want %#v", i, got[i], want[i])
 		}
 	}
-	return false
-}
-
-func hasEventWithID(events []Event, kind EventKind, id string) bool {
-	for _, event := range events {
-		if event.Kind == kind && event.ID == id {
-			return true
-		}
-	}
-	return false
 }

@@ -61,6 +61,60 @@ func TestPlungerChargeLimitsAndRelease(t *testing.T) {
 	}
 }
 
+func TestFlipperStepRejectsInvalidInputs(t *testing.T) {
+	for _, dt := range []float64{0, -1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		f := NewFlipper("test", Vec{}, 10, 1, 0, 1)
+		f.AngularVelocity = 7
+		f.Step(dt)
+		if f.Angle != 0 || f.AngularVelocity != 0 {
+			t.Errorf("Step(%v) = angle %v velocity %v", dt, f.Angle, f.AngularVelocity)
+		}
+	}
+	for _, speed := range []float64{0, -1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		f := NewFlipper("test", Vec{}, 10, 1, 0, 1)
+		f.RiseSpeed = speed
+		f.SetEngaged(true)
+		f.Step(.1)
+		if f.Angle != 0 || f.AngularVelocity != 0 {
+			t.Errorf("invalid rise speed %v moved flipper: %+v", speed, f)
+		}
+	}
+	for _, angle := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		f := NewFlipper("test", Vec{}, 10, 1, .25, 1)
+		f.Angle = angle
+		f.Step(.1)
+		if !finite(f.Angle) || !finite(f.AngularVelocity) {
+			t.Errorf("invalid angle %v was not repaired: %+v", angle, f)
+		}
+	}
+}
+
+func TestPlungerHoldRejectsInvalidInputs(t *testing.T) {
+	for _, dt := range []float64{0, -1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		p := NewPlunger(V(0, -1))
+		p.Charge = .25
+		p.Hold(dt)
+		if p.Charge != .25 {
+			t.Errorf("Hold(%v) changed charge to %v", dt, p.Charge)
+		}
+	}
+	for _, rate := range []float64{0, -1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		p := NewPlunger(V(0, -1))
+		p.Charge = .25
+		p.ChargeRate = rate
+		p.Hold(.5)
+		if p.Charge != .25 {
+			t.Errorf("invalid charge rate %v changed charge to %v", rate, p.Charge)
+		}
+	}
+	p := NewPlunger(V(0, -1))
+	p.Charge = math.NaN()
+	p.Hold(.5)
+	if !finite(p.Charge) || p.Charge <= 0 {
+		t.Fatalf("non-finite charge was not repaired: %v", p.Charge)
+	}
+}
+
 func TestSensorsAndCooldown(t *testing.T) {
 	ball := NewBall(V(5, 5), 1)
 	drain := BoxSensor{ID: "drain", Min: V(0, 4), Max: V(10, 6)}
@@ -97,5 +151,28 @@ func TestBallGuardRepairsNaNAndCapsSpeed(t *testing.T) {
 	ball.Guard(Vec{})
 	if !closeTo(ball.Velocity.Length(), 250) {
 		t.Fatalf("velocity not capped: %v", ball.Velocity.Length())
+	}
+}
+
+func TestBallGuardRepairsDefensiveFields(t *testing.T) {
+	for _, radius := range []float64{0, -1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		ball := NewBall(Vec{}, radius)
+		ball.Guard(Vec{})
+		if ball.Radius != 1 {
+			t.Errorf("invalid radius %v repaired to %v, want 1", radius, ball.Radius)
+		}
+	}
+	for _, maxSpeed := range []float64{0, -1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		ball := NewBall(Vec{}, 1)
+		ball.MaxSpeed = maxSpeed
+		ball.Guard(Vec{})
+		if ball.MaxSpeed != DefaultMaxSpeed || !ball.Velocity.IsFinite() {
+			t.Errorf("invalid max speed %v repaired to %v", maxSpeed, ball.MaxSpeed)
+		}
+	}
+	ball := NewBall(V(math.NaN(), math.Inf(1)), 1)
+	ball.Guard(V(math.Inf(-1), math.NaN()))
+	if ball.Position != (Vec{}) {
+		t.Fatalf("invalid safe position repaired ball to %+v, want zero", ball.Position)
 	}
 }

@@ -145,6 +145,39 @@ func TestFlipperPostsDoNotOverlapFlippers(t *testing.T) {
 	}
 }
 
+func TestFlipperSweepCannotTunnelPastBall(t *testing.T) {
+	const fixedStep = 1.0 / 240.0
+	for _, flipper := range New().Flippers {
+		travelPerStep := (physics.DefaultMaxSpeed + flipper.RiseSpeed*flipper.Length) * fixedStep
+		collisionMargin := BallRadius + flipper.Radius
+		if travelPerStep >= collisionMargin {
+			t.Errorf("%s sweep travels %.3f per step, must stay below collision margin %.3f", flipper.ID, travelPerStep, collisionMargin)
+		}
+	}
+}
+
+func TestGoldenBallTrajectory(t *testing.T) {
+	definition := New()
+	world := definition.World()
+	ball := physics.NewBall(definition.BallSpawn, BallRadius)
+	ball.Velocity = physics.V(0, -1750)
+	want := map[int]physics.Vec{
+		60:  physics.V(655, 571.645833333334),
+		120: physics.V(655, 205.791666666669),
+		240: physics.V(239.921484223645, 163.191701461161),
+		360: physics.V(212.226756675774, 415.549033434085),
+	}
+	for step := 1; step <= 360; step++ {
+		definition.Flippers[0].SetEngaged(step%97 < 12)
+		definition.Flippers[1].SetEngaged(step%131 < 15)
+		world.StepFlippers(1.0 / 240.0)
+		world.StepBall(&ball, 1.0/240.0)
+		if expected, ok := want[step]; ok && ball.Position.Sub(expected).Length() > 1e-6 {
+			t.Errorf("position at step %d = {X: %.12f, Y: %.12f}, want %+v", step, ball.Position.X, ball.Position.Y, expected)
+		}
+	}
+}
+
 func TestPlayfieldRoutesDroppedBallsThroughDrainSensor(t *testing.T) {
 	const (
 		step              = 1.0 / 240.0

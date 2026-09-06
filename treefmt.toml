@@ -5,7 +5,8 @@ excludes = [
   "go.sum",
   "go.mod",
   "**/.gitignore",
-  "assets/**",
+  "assets/images/**",
+  "assets/audio/**",
   "dist/**",
 ]
 
@@ -18,15 +19,4 @@ includes = ["*.go"]
 command = "gci"
 options = ["write", "--skip-generated"]
 includes = ["*.go"]
-priority = 1
-
-[formatter.markdownlint]
-command = "markdownlint"
-options = ["--fix"]
-includes = ["*.md"]
-
-[formatter.prettier]
-command = "prettier"
-options = ["-w"]
-includes = ["*.md"]
 priority = 1

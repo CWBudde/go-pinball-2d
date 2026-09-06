@@ -24,44 +24,6 @@ cp "${root_exec}" "${dist_dir}/wasm_exec.js"
 cp -R "${root_dir}/assets" "${dist_dir}/assets"
 touch "${dist_dir}/.nojekyll"
 
-required=(
-    index.html
-    main.wasm
-    wasm_exec.js
-    assets/README.md
-    assets/images/favicon.png
-    assets/images/background.png
-    assets/images/logo.png
-    assets/images/ball.png
-    assets/images/flipper.png
-    assets/images/bumper.png
-    assets/images/post.png
-    assets/images/target.png
-    assets/images/lane-light.png
-    assets/images/plunger.png
-    assets/images/glow.png
-    assets/images/particle.png
-    assets/audio/flipper.wav
-    assets/audio/bumper.wav
-    assets/audio/target.wav
-    assets/audio/launch.wav
-    assets/audio/jackpot.wav
-    assets/audio/drain.wav
-    assets/audio/game-over.wav
-)
-
-for path in "${required[@]}"; do
-    if [[ ! -s "${dist_dir}/${path}" ]]; then
-        echo "web build is missing required non-empty file: ${path}" >&2
-        exit 1
-    fi
-done
-
-if [[ ! -f "${dist_dir}/.nojekyll" ]]; then
-    echo "web build is missing .nojekyll" >&2
-    exit 1
-fi
-
 go run ./cmd/verifydist -repo "${root_dir}" -dist dist
 
 echo "Built browser game in ${dist_dir}"

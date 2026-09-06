@@ -26,6 +26,9 @@ func DistancePointSegment(p Vec, s Segment) float64 {
 // RayCircle returns the earliest fraction along delta at which the point at
 // start enters the circle. Fractions are in [0,1].
 func RayCircle(start, delta, center Vec, radius float64) (float64, Vec, bool) {
+	if !start.IsFinite() || !delta.IsFinite() || !center.IsFinite() || !finite(radius) {
+		return 0, Vec{}, false
+	}
 	radius = math.Max(0, radius)
 	m := start.Sub(center)
 	c := m.LengthSquared() - radius*radius
@@ -53,5 +56,11 @@ func RayCircle(start, delta, center Vec, radius float64) (float64, Vec, bool) {
 		return 0, Vec{}, false
 	}
 	n := start.Add(delta.Mul(t)).Sub(center).Normalized()
+	if n.LengthSquared() == 0 {
+		n = delta.Mul(-1).Normalized()
+		if n.LengthSquared() == 0 {
+			n = V(0, -1)
+		}
+	}
 	return t, n, true
 }

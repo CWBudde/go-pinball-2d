@@ -34,3 +34,19 @@ func TestOddStrokeWidth(t *testing.T) {
 		}
 	}
 }
+
+func TestViewportScalesStrokeWidths(t *testing.T) {
+	for _, test := range []struct {
+		width, height int
+		want          int
+	}{
+		{720, 1080, 3},
+		{1440, 2160, 7},
+		{360, 540, 3},
+	} {
+		view := newViewport(test.width, test.height)
+		if got := view.stroke(tableOutlineWidth); got != test.want {
+			t.Errorf("viewport %dx%d stroke = %d, want %d", test.width, test.height, got, test.want)
+		}
+	}
+}

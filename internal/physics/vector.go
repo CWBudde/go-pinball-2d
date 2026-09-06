@@ -33,12 +33,15 @@ func (a Vec) Normalized() Vec {
 }
 
 func (a Vec) ClampLength(max float64) Vec {
-	if max <= 0 {
+	if max <= 0 || math.IsNaN(max) {
 		return Vec{}
 	}
 	lsq := a.LengthSquared()
 	if !finite(lsq) {
 		return Vec{}
+	}
+	if math.IsInf(max, 1) {
+		return a
 	}
 	if lsq <= max*max {
 		return a

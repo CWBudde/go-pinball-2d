@@ -22,7 +22,14 @@ func (p *Plunger) Hold(dt float64) {
 	if dt <= 0 || !finite(dt) {
 		return
 	}
-	p.Charge = Clamp(p.Charge+math.Max(0, p.ChargeRate)*dt, 0, 1)
+	if !finite(p.Charge) {
+		p.Charge = 0
+	}
+	rate := p.ChargeRate
+	if rate <= 0 || !finite(rate) {
+		return
+	}
+	p.Charge = Clamp(p.Charge+rate*dt, 0, 1)
 }
 
 // Release consumes the stored charge and returns a launch velocity impulse.

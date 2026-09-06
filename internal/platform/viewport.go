@@ -40,3 +40,7 @@ func (v viewport) y(value float64) int { return v.offsetY + int(math.Round(value
 func (v viewport) size(value float64) int {
 	return max(1, int(math.Round(value*v.scale)))
 }
+
+func (v viewport) stroke(width int) int {
+	return oddStrokeWidth(v.size(float64(width)))
+}

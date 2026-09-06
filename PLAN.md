@@ -421,81 +421,81 @@ directly, bypassing sensor dispatch entirely.
 
 Tests:
 
-- [ ] Assert `Event.ID`, `Points`, and `At`, not just `Kind`.
-- [ ] Add a golden-trajectory regression test pinning actual ball positions;
+- [x] Assert `Event.ID`, `Points`, and `At`, not just `Kind`.
+- [x] Add a golden-trajectory regression test pinning actual ball positions;
       the simulation is deliberately deterministic, so this is nearly free.
-- [ ] Cover the scoring paths in `stepPlaying` (46.9% covered): bumper and
+- [x] Cover the scoring paths in `stepPlaying` (46.9% covered): bumper and
       slingshot contacts, rollover lighting, drain by sensor, the
       out-of-bounds recovery, and `bankReset` expiry - through the sensor
       dispatch rather than around it.
-- [ ] Cover the defensive guards, which are the least-tested code in the
+- [x] Cover the defensive guards, which are the least-tested code in the
       repository despite existing solely for bad input: `Ball.Guard` (64.7%),
       `Vec.Normalized` and `ClampLength` (75%), `Flipper.Step` (72.2%),
       `RayCircle` (81.8%), `Plunger.Hold` (66.7%). Table tests with `NaN`,
       `+/-Inf`, zero, and negative values.
-- [ ] Test `cmd/verifydist.verify` (0% covered, and it gates deployment) with
+- [x] Test `cmd/verifydist.verify` (0% covered, and it gates deployment) with
       `t.TempDir()` fixtures: missing `index.html`, missing canvas, missing
       `.nojekyll`, zero-byte asset, success.
-- [ ] Test `State.String()` (0% covered); it feeds the wasm accessibility
+- [x] Test `State.String()` (0% covered); it feeds the wasm accessibility
       label.
-- [ ] Add the invariant test for the flipper sweep:
+- [x] Add the invariant test for the flipper sweep:
       `(MaxSpeed + RiseSpeed*Length)*FixedStep < BallRadius + Flipper.Radius`.
       No swept volume is computed for the rotating flipper, so this margin is
       the only thing preventing tunnelling and nothing currently guards it.
-- [ ] Add a `BenchmarkStepBall`; `earliestCollision` is a full linear scan over
+- [x] Add a `BenchmarkStepBall`; `earliestCollision` is a full linear scan over
       ~40 colliders, up to 10 iterations, 240 times a second, with no
       broadphase.
 
 Tooling and repository:
 
-- [ ] Add a `LICENSE` file. `assets/README.md:86` claims the assets "carry the
+- [x] Add a `LICENSE` file. `assets/README.md:86` claims the assets "carry the
       same project license as the rest of this repository", but no license file
       exists, so the reference resolves to nothing.
-- [ ] Run golangci-lint for both targets. `justfile:11` runs it only under
+- [x] Run golangci-lint for both targets. `justfile:11` runs it only under
       `GOOS=js GOARCH=wasm`, so `status_native.go` and `store_native.go` are
       never linted at all.
-- [ ] Decide on Markdown formatting: either install markdownlint and prettier
+- [x] Decide on Markdown formatting: either install markdownlint and prettier
       in `ci.yml` and drop `--allow-missing-formatter`, or delete the
       `[formatter.markdownlint]` block. Neither tool has ever run in CI.
-- [ ] Narrow `treefmt.toml:8` from `assets/**` to `assets/images/**` and
+- [x] Narrow `treefmt.toml:8` from `assets/**` to `assets/images/**` and
       `assets/audio/**`; the current pattern also excludes `assets/README.md`.
-- [ ] Add a `concurrency` group and a branch filter to `ci.yml` (every
+- [x] Add a `concurrency` group and a branch filter to `ci.yml` (every
       same-repo PR currently runs the gate twice), SHA-pin the third-party
       `extractions/setup-just` action, and cache the installed tool binaries.
-- [ ] Gate `pages.yml` on the quality job. It currently runs only `just test`
+- [x] Gate `pages.yml` on the quality job. It currently runs only `just test`
       and `just web`, so a deploy can publish what CI would have rejected.
-- [ ] Delete the dead `required[]` array in `scripts/build-web.sh:27-63`;
+- [x] Delete the dead `required[]` array in `scripts/build-web.sh:27-63`;
       `cmd/verifydist` already performs every one of those checks and derives
       its list from the source instead of a fourth hand-maintained copy.
-- [ ] Fix the systematic darkening in `cmd/genassets/main.go:172`: `finish()`
+- [x] Fix the systematic darkening in `cmd/genassets/main.go:172`: `finish()`
       truncates with `uint8(r/ss)` while `blendPixel` rounds, biasing every
       pixel down. Use `uint8((r + ss/2) / ss)`.
-- [ ] Harden asset determinism: `blendPixel` and `mix` have the `x*y + z` shape
+- [x] Harden asset determinism: `blendPixel` and `mix` have the `x*y + z` shape
       that permits FMA contraction on arm64, and byte-comparing PNGs makes the
       committed assets hostage to `compress/flate` output across Go releases.
       Compare decoded pixels rather than encoded bytes.
-- [ ] Make `checkAssets` bidirectional; it never notices orphaned files in
+- [x] Make `checkAssets` bidirectional; it never notices orphaned files in
       `assets/` that the generator no longer produces.
 
 Performance:
 
-- [ ] Replace the triple `append` in `render.go:139`, which builds and discards
+- [x] Replace the triple `append` in `render.go:139`, which builds and discards
       a ~19-element slice every frame purely to iterate three others.
-- [ ] Cache the canvas handle and the last published values in
+- [x] Cache the canvas handle and the last published values in
       `status_wasm.go`; it crosses the JS boundary about nine times per frame
       to write values that change only on scoring events.
-- [ ] Allocate the contact slice lazily in `solver.go:80` rather than
+- [x] Allocate the contact slice lazily in `solver.go:80` rather than
       `make([]Contact, 0, 2)` 240 times a second.
-- [ ] Precompute the cooldown key strings; `"contact:"+id` and `"sensor:"+id`
+- [x] Precompute the cooldown key strings; `"contact:"+id` and `"sensor:"+id`
       (`game.go:180,202,281`) allocate thousands of times a second.
-- [ ] Handle `devicePixelRatio`: the backing store is pinned at 720x1080 while
+- [x] Handle `devicePixelRatio`: the backing store is pinned at 720x1080 while
       CSS scales the element, so the game is soft on every HiDPI display.
       `newViewport` already letterboxes correctly, so this is a one-line JS
       change.
-- [ ] Scale stroke widths and the plunger-bar insets with the viewport
+- [x] Scale stroke widths and the plunger-bar insets with the viewport
       (`render.go:30,234`); they are fixed pixel constants today, giving
       hairlines in fullscreen and misregistered fills at any scale but 1.
-- [ ] Add touch controls, or drop the mobile affordances (`viewport-fit=cover`,
+- [x] Add touch controls, or drop the mobile affordances (`viewport-fit=cover`,
       `env(safe-area-inset-*)`) that promise them. The game is currently
       unplayable on phones and tablets.
 

@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -26,11 +31,21 @@ jobs:
           sudo apt-get install --no-install-recommends libgl1-mesa-dev xorg-dev
 
       - name: Set up just
-        uses: extractions/setup-just@v4
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Add Go tools to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pinned quality-tool binaries
+        id: quality-tools
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-quality-tools-treefmt-2.5.0-gofumpt-0.11.0-gci-0.14.0-golangci-2.13.1
 
       - name: Install pinned quality tools with Go 1.27
+        if: steps.quality-tools.outputs.cache-hit != 'true'
         run: |
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           go install github.com/numtide/treefmt/v2/cmd/treefmt@v2.5.0
           go install mvdan.cc/gofumpt@v0.11.0
           go install github.com/daixiang0/gci@v0.14.0

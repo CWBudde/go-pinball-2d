@@ -1,6 +1,9 @@
 package physics
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestSweptCircleHitsThinSegment(t *testing.T) {
 	wall := LineCollider{ID: "wall", Segment: Segment{A: V(-20, 0), B: V(20, 0)}}
@@ -26,6 +29,40 @@ func TestSweptCircleCircle(t *testing.T) {
 	hit, ok := SweepCircleCircle(V(0, 0), V(30, 0), 2, collider)
 	if !ok || !closeTo(hit.TOI, 14.0/30.0) || !hit.Normal.AlmostEqual(V(-1, 0)) {
 		t.Fatalf("unexpected hit: %+v, %v", hit, ok)
+	}
+}
+
+func TestRayCircleDefensiveInputs(t *testing.T) {
+	for _, radius := range []float64{0, -1} {
+		t.Run("non-positive radius", func(t *testing.T) {
+			time, normal, ok := RayCircle(V(-1, 0), V(2, 0), Vec{}, radius)
+			if !ok || !closeTo(time, .5) || normal != V(-1, 0) {
+				t.Fatalf("RayCircle radius %v = (%v, %+v, %t)", radius, time, normal, ok)
+			}
+		})
+	}
+	invalid := []struct {
+		name         string
+		start, delta Vec
+		center       Vec
+		radius       float64
+	}{
+		{"NaN start", V(math.NaN(), 0), V(1, 0), Vec{}, 1},
+		{"positive infinite delta", Vec{}, V(math.Inf(1), 0), Vec{}, 1},
+		{"negative infinite center", Vec{}, V(1, 0), V(math.Inf(-1), 0), 1},
+		{"NaN radius", Vec{}, V(1, 0), Vec{}, math.NaN()},
+		{"positive infinite radius", Vec{}, V(1, 0), Vec{}, math.Inf(1)},
+		{"negative infinite radius", Vec{}, V(1, 0), Vec{}, math.Inf(-1)},
+	}
+	for _, test := range invalid {
+		t.Run(test.name, func(t *testing.T) {
+			if time, normal, ok := RayCircle(test.start, test.delta, test.center, test.radius); ok || time != 0 || normal != (Vec{}) {
+				t.Fatalf("RayCircle invalid input = (%v, %+v, %t)", time, normal, ok)
+			}
+		})
+	}
+	if _, _, ok := RayCircle(V(2, 0), Vec{}, Vec{}, 1); ok {
+		t.Fatal("zero-length ray outside circle reported a hit")
 	}
 }
 

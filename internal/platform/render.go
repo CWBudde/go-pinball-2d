@@ -136,9 +136,14 @@ func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64,
 
 func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewport) {
 	definition := current.Table
-	for _, line := range append(append(append([]physics.LineCollider{}, definition.OuterWalls...), definition.ShooterLane...), definition.GuideWalls...) {
-		r.thickLine(window, view, line.Segment, cyan, tableOutlineWidth)
+	drawLines := func(walls []physics.LineCollider) {
+		for _, line := range walls {
+			r.thickLine(window, view, line.Segment, cyan, tableOutlineWidth)
+		}
 	}
+	drawLines(definition.OuterWalls)
+	drawLines(definition.ShooterLane)
+	drawLines(definition.GuideWalls)
 	for _, sling := range definition.Slingshots {
 		r.thickLine(window, view, physics.Segment{A: sling.Triangle[0], B: sling.Triangle[1]}, magenta, tableOutlineWidth)
 		r.thickLine(window, view, physics.Segment{A: sling.Triangle[1], B: sling.Triangle[2]}, magenta, tableOutlineWidth)
@@ -153,7 +158,7 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 		}
 		r.spriteCentered(window, "assets/images/lane-light.png", view, midpoint, 28, 56, 90)
 		x, y := view.point(midpoint)
-		r.thickEllipse(window, x-view.size(13), y-view.size(6), view.size(26), view.size(12), color, tableOutlineWidth)
+		r.thickEllipse(window, x-view.size(13), y-view.size(6), view.size(26), view.size(12), color, view.stroke(tableOutlineWidth))
 	}
 
 	for _, bumper := range definition.Bumpers {
@@ -230,8 +235,12 @@ func (r *renderer) drawState(window draw.Window, current *game.Game, view viewpo
 	case game.BallReady:
 		r.centerText(window, "HOLD SPACE / DOWN TO CHARGE", centerX, view.y(720), float32(math.Max(.72, view.scale*.78)), amber)
 		barWidth := view.size(260)
-		r.thickRect(window, centerX-barWidth/2, view.y(750), barWidth, view.size(16), draw.White, tableOutlineWidth)
-		window.FillRect(centerX-barWidth/2+2, view.y(750)+2, int(float64(barWidth-4)*current.PlungerCharge), max(1, view.size(16)-4), magenta)
+		barHeight := view.size(16)
+		strokeWidth := view.stroke(tableOutlineWidth)
+		inset := (strokeWidth + 1) / 2
+		r.thickRect(window, centerX-barWidth/2, view.y(750), barWidth, barHeight, draw.White, strokeWidth)
+		fillWidth := int(float64(max(0, barWidth-2*inset)) * current.PlungerCharge)
+		window.FillRect(centerX-barWidth/2+inset, view.y(750)+inset, fillWidth, max(1, barHeight-2*inset), magenta)
 	case game.Paused:
 		window.FillRect(view.offsetX, view.offsetY, view.width, view.height, draw.RGBA(0, 0, 0, .68))
 		r.centerText(window, "PAUSED", centerX, centerY, float32(math.Max(1.2, view.scale*1.6)), amber)
@@ -254,7 +263,7 @@ func (r *renderer) thickLine(window draw.Window, view viewport, segment physics.
 	if length == 0 {
 		return
 	}
-	width = oddStrokeWidth(width)
+	width = view.stroke(width)
 	normalX, normalY := -dy/length, dx/length
 	for offset := -width / 2; offset <= width/2; offset++ {
 		x := int(math.Round(normalX * float64(offset)))

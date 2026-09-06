@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#050816" />
     <title>Neon Relay — 2D Pinball</title>
     <link rel="icon" type="image/png" href="./assets/images/favicon.png" />
@@ -27,8 +27,7 @@
       body {
         display: grid;
         place-items: center;
-        padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
-          max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        padding: 12px;
         overflow-x: hidden;
         background:
           radial-gradient(circle at 50% 8%, rgb(32 232 255 / 10%), transparent 34rem),
