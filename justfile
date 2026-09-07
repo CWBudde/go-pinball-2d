@@ -2,6 +2,10 @@
 build:
     go build -v ./...
 
+# Build and launch the native game (GLFW/OpenGL on Linux).
+run-native:
+    go run .
+
 # Run all native unit tests.
 test:
     go test -v -count=1 ./internal/game ./internal/physics ./internal/platform ./internal/table ./cmd/...

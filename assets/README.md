@@ -61,7 +61,8 @@ than the opaque background are transparent.
 | `images/table-shadows.png` | 1440×2160 | transparent static contact shadows |
 | `images/table-hardware.png` | 1440×2160 | rails, routing plate, slingshot covers, and apron panels |
 | `images/table-foreground.png` | 1440×2160 | cabinet perimeter, display housings, and drain lip |
-| `images/logo.png` | 640×200 | Neon Relay circuit wordmark |
+| `images/logo.png` | 640×200 | beveled Neon Relay circuit wordmark |
+| `images/instrument-font.png` | 512×720 | original technical glyph atlas, five color rows, segmented digits |
 | `images/favicon.png` | 64×64 | compact relay-mark icon |
 | `images/ball.png` | 64×64 | spherical chrome reflections with a dark horizon and cool key |
 | `images/ball-shadow.png` | 96×64 | separate soft contact shadow |
@@ -86,16 +87,24 @@ than the opaque background are transparent.
 
 ## Rendering approach
 
+The renderer enables `draw.Window.BlurImages(true)` for scaled and rotated
+assets. On Linux, GLFW uses trilinear mipmap minification and bilinear
+magnification, replacing the backend's default nearest-neighbor sampling.
+Existing 2× textures supply the detail; cached GPU mip levels handle changing
+window sizes without generating a separate PNG set for each resolution.
+This smooths image edges, not runtime line primitives. Software engine captures
+use CatmullRom filtering and can differ from the native GPU result.
+
 `cmd/genassets/art.go`, `cmd/genassets/layout.go`, and
 `cmd/genassets/bumper_material.go`, and `cmd/genassets/hardware_material.go` draw the electronics-themed artwork.
 Runtime composition follows this order:
 
 1. Flat playfield and circuitry, then all bumper patches, then printed markings.
 2. Bumper shadows and static contact shadows.
-3. Static hardware, followed by lane inserts, bumpers (body then emission), posts, and targets.
+3. Static hardware and flush bank/apron displays, then lane inserts, bumpers (body then emission), posts, and targets.
 4. Moving flippers, plunger, and ball.
 5. Foreground cabinet/display housings and the lip below the drain sensor.
-6. Emission/effects and the instrument HUD.
+6. Emission/effects and the upper score/ball/bonus instruments.
 
 Rails and slingshots use the same geometry as `internal/table.New()`. Upper guide
 curves are tessellated once in the table definition for both drawing and physics.
@@ -114,8 +123,18 @@ the lower walls, and foreground covers stay outside live ball travel. Sprite
 padding and shadows are decorative; opaque contact edges fit the physical shapes.
 Future raised covers must explicitly define ball clearance and draw order.
 Lane and target states select illuminated or recessed variants at runtime.
-The browser uses a system monospace font for live displays; software captures
-currently use Go Mono, so text rasterization can differ.
+Live instruments and state prompts use `instrument-font.png` on every backend.
+The original letter paths in `internal/display` also author the printed labels and
+beveled title. Each padded 32×48 atlas cell has fixed metrics, clipped corners,
+and heavier strokes for half-size readability. Transparent padding preserves
+each strip's ink RGB so straight-alpha GPU mipmaps do not darken small glyphs;
+numerals use seven separate
+segments. Runtime source-rectangle draws reuse one texture (about 1.4 MiB decoded,
+30 KiB PNG). Long scores shrink within their instrument without losing digits.
+The offline surface caches glyph resamples by source rectangle and destination
+size, bounded to 512 entries. It uses the same glyph pixels as GLFW and WASM;
+CatmullRom versus GPU/Canvas filtering still differs. Diagnostic/error text and
+untextured layout previews retain backend fonts.
 
 The visual direction follows the Neon Relay concept developed during design;
 no generated concept bitmap is embedded in the game. All shipped pixels remain
@@ -144,15 +163,18 @@ are generated outputs in `assets/images/`. There are no curated raster inputs to
 preserve in this phase. Do not hand-edit generated PNGs. If later work introduces
 painted sources, store them outside `images/` and `audio/` (for example
 `assets/sources/`) and explicitly add the conversion step to the generator.
-Freshness verification covers 27 PNGs and seven WAVs.
+Freshness verification covers 28 PNGs and seven WAVs.
 
 Phase 3 extends the palette to rails, flippers, posts, target faces, lane inserts,
 and the plunger. `hardware_material.go` authors the reusable surfaces. Capsule
 footprint tests cover the 2× flipper, target, and post sprites; all physical geometry
 is unchanged. Static rails use the exact collider paths and radii, with inset
 chrome bands, rubber faces, captive brackets, and fasteners on the upper curves.
-Slingshot covers have smoked translucent faces, routed traces, chrome mounting
-posts, rubber skirts, and down-right shadows. Only the cabinet and drain lip render
+Slingshot covers in `sling_material.go` have shaded smoked acrylic, bent cyan/pink
+traces and plated vias, polished bevels, recessed segmented diffusers, chrome
+fasteners, rubber skirts, and down-right shadows. This treatment is baked into
+`table-hardware.png` and preserves the existing nine-unit contact radius and lane
+clearances. It adds no textures or runtime draws. Only the cabinet and drain lip render
 after the ball. Flush target sockets remain below a ball after a target drops.
 
 The spring well is recessed. Separate head, rod, and coil sprites keep the head
@@ -171,7 +193,7 @@ The extra printed-markings layer
 prevents bumper patches from covering the title and makes those planes independent.
 The five full-table textures are 1440×2160 (about 59 MiB decoded RGBA together).
 This intentionally trades texture memory for crisp 2× captures while keeping
-static detail in five image draws. The complete PNG inventory is about 1.1 MiB.
+static detail in five image draws. The complete PNG inventory is about 1.2 MiB.
 The shared bumper textures are reused three times, adding six draws over Phase 2;
 separating the markings adds one more. No per-pixel shading runs during play. Phase 4 adds five small textures (about
 61 KiB combined) and draws target sockets beneath moving faces, a ball shadow,
@@ -204,3 +226,16 @@ shared table definition. The committed
 binaries are direct outputs of that source and carry the same project license as
 the rest of this repository. Because generation consumes no external
 inputs, the source plus its fixed constants are the complete provenance trail.
+
+## Display presentation
+
+Phase 5 fits smoked-glass score/ball instruments into the upper cabinet, with
+separate high-score and bonus readouts. Lane numbers have inset plaques; the relay
+bank shows actual target progress and multiplier. The apron contains a recessed
+status screen and ten charge LEDs. Attract, launch, pause, ball lost, and game over
+share that screen instead of covering the playfield with floating prompts.
+Objective text changes when a lane arms the 5,000-point relay shot. All lower
+screens are flush and draw before the ball, with no added collision geometry.
+`cmd/genassets/display.go` authors glass/typography; `internal/platform/displays.go`
+composes the live values. The title uses complete shadow, chrome, emission, and
+highlight passes to preserve continuous letter joins.

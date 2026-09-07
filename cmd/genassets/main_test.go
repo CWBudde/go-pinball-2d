@@ -17,7 +17,7 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(files), 34; got != want {
+	if got, want := len(files), 35; got != want {
 		t.Fatalf("generated %d files, want %d", got, want)
 	}
 	if err := checkAssets(filepath.Join("..", "..", "assets"), files); err != nil {
@@ -30,6 +30,7 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 		"images/table-shadows.png":      {1440, 2160},
 		"images/table-hardware.png":     {1440, 2160},
 		"images/table-foreground.png":   {1440, 2160},
+		"images/instrument-font.png":    {512, 720},
 		"images/logo.png":               {640, 200},
 		"images/favicon.png":            {64, 64},
 		"images/ball-shadow.png":        {96, 64},

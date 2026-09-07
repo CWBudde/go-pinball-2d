@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/CWBudde/go-pinball-2d/internal/game"
+	"github.com/CWBudde/go-pinball-2d/internal/physics"
 	"github.com/CWBudde/go-pinball-2d/internal/platform"
 	"github.com/CWBudde/go-pinball-2d/internal/table"
 )
@@ -24,7 +25,7 @@ func main() {
 	height := flag.Int("height", 1080, "frame height")
 	colliders := flag.Bool("colliders", false, "overlay actual contact geometry and sensors")
 	blockout := flag.Bool("blockout", false, "render untextured layout and contact geometry")
-	selected := flag.String("frame", "", "capture only attract, ready, playing, flippers, paused, or rally")
+	selected := flag.String("frame", "", "capture attract, uncharged, charge, ready, playing, flippers, paused, rally, lost, or gameover")
 	sequence := flag.String("sequence", "", "capture bumper, sling, lane, bank, plunger, or all impact/recovery sequences")
 	flag.Parse()
 	if *sequence != "" {
@@ -42,7 +43,7 @@ func main() {
 
 func run(out string, width, height int, colliders, blockout bool, selected string) error {
 	switch selected {
-	case "", "attract", "ready", "playing", "flippers", "paused", "rally":
+	case "", "attract", "ready", "playing", "flippers", "paused", "rally", "uncharged", "charge", "lost", "gameover":
 	default:
 		return fmt.Errorf("unknown capture frame %q", selected)
 	}
@@ -104,7 +105,14 @@ func run(out string, width, height int, colliders, blockout bool, selected strin
 		return err
 	}
 	step(1, game.Input{StartPressed: true})
-	step(180, game.Input{Plunger: true})
+	if err := capture("uncharged", game.BallReady); err != nil {
+		return err
+	}
+	step(60, game.Input{Plunger: true})
+	if err := capture("charge", game.BallReady); err != nil {
+		return err
+	}
+	step(120, game.Input{Plunger: true})
 	if err := capture("ready", game.BallReady); err != nil {
 		return err
 	}
@@ -137,9 +145,34 @@ func run(out string, width, height int, colliders, blockout bool, selected strin
 		return err
 	}
 	if selected == "" || selected == "rally" {
-		return captureBumperPair(out, window, current.Table)
+		if err := captureBumperPair(out, window, current.Table); err != nil {
+			return err
+		}
 	}
-	return nil
+	// Seed the real drain sensor, then let the game's three-ball lifecycle run.
+	// State transitions and bonus settlement come from Update, never forced states.
+	for ball := 1; ball <= 3; ball++ {
+		current.Ball.Position = physics.V(table.PlayfieldCenter, 1045)
+		current.Ball.Velocity = physics.Vec{}
+		step(1, game.Input{})
+		if current.State != game.BallLost {
+			return fmt.Errorf("ball %d did not drain", ball)
+		}
+		if ball == 1 {
+			if err := capture("lost", game.BallLost); err != nil {
+				return err
+			}
+		}
+		step(160, game.Input{})
+		if ball < 3 {
+			if current.State != game.BallReady {
+				return fmt.Errorf("next ball was not served")
+			}
+			step(180, game.Input{Plunger: true})
+			step(1, game.Input{})
+		}
+	}
+	return capture("gameover", game.GameOver)
 }
 
 // Crop the rendered rally pixels without rescaling or redrawing the sprites.

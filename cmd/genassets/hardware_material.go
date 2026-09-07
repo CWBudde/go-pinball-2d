@@ -210,46 +210,6 @@ func (c *canvas) rails(walls []physics.LineCollider) {
 	}
 }
 
-func (c *canvas) plastic(p [][2]float64) {
-	var cx, cy float64
-	for _, v := range p {
-		cx += v[0] / 3
-		cy += v[1] / 3
-	}
-	inset := func(scale float64) [][2]float64 {
-		q := make([][2]float64, len(p))
-		for i, v := range p {
-			q[i] = [2]float64{cx + (v[0]-cx)*scale, cy + (v[1]-cy)*scale}
-		}
-		return q
-	}
-	// Rounded rubber skirt and chrome lip stay within the radius-nine edges.
-	c.polygon(p, black, 1)
-	c.outline(p, 18, black, 1)
-	c.outline(p, 15, materialRGB(64, 18, 33), 1)
-	c.outline(p, 11, metal, 1)
-	c.outline(p, 8, silver, .9)
-	c.outline(p, 5, black, 1)
-	q := inset(.91)
-	c.polygon(q, materialRGB(15, 31, 40), .84)
-	c.outline(q, 1, metal, .8)
-	// Routed circuitry is visible under a smoked cover and a diagonal reflection.
-	for i, v := range inset(.65) {
-		x, y := v[0], v[1]
-		c.line(x, y, cx, cy+float64(i-1)*12, .8, cyan, .7)
-		c.ring(x, y, 2.5, 1.5, cyan, .8)
-	}
-	glint := [][2]float64{q[0], {cx, cy - 25}, {cx + 5, cy + 12}, q[1]}
-	c.polygon(glint, silver, .07)
-	for _, v := range p {
-		c.ellipseSurface(v[0], v[1], 7, 7, bumperChrome)
-		c.bumperFastener(v[0], v[1])
-	}
-	// Pink diffuser only on the lower return edge, not around the whole triangle.
-	a, b := p[1], p[2]
-	c.line(a[0], a[1]+3, b[0], b[1]+3, 1.5, pink, .8)
-}
-
 // Flush routed pads and panel seams tie the four sockets into a target bank.
 // None of this ink has height: dropped targets and passing balls stay readable.
 func (c *canvas) boardDetails() {

@@ -44,6 +44,10 @@ func (s *surface) Close() {
 
 func (s *surface) Size() (int, int) { return s.pixels.Bounds().Dx(), s.pixels.Bounds().Dy() }
 
+// BlurImages is the production renderer's smoothing request. This offline
+// surface always uses CatmullRom filtering; it does not emulate GPU mipmaps.
+func (s *surface) BlurImages(bool) {}
+
 func rgba(c draw.Color) color.NRGBA {
 	return color.NRGBA{R: uint8(c.R * 255), G: uint8(c.G * 255), B: uint8(c.B * 255), A: uint8(c.A * 255)}
 }
@@ -154,6 +158,7 @@ func (s *surface) ImageSize(path string) (int, int, error) {
 type scaledKey struct {
 	path          string
 	width, height int
+	source        image.Rectangle
 }
 
 func (s *surface) DrawImageFileTo(path string, x, y, width, height, rotation int) error {
@@ -161,20 +166,32 @@ func (s *surface) DrawImageFileTo(path string, x, y, width, height, rotation int
 	if err != nil {
 		return err
 	}
+	return s.drawImageRegion(path, img, img.Bounds(), x, y, width, height, rotation)
+}
+
+func (s *surface) DrawImageFilePart(path string, sx, sy, sw, sh, x, y, width, height, rotation int) error {
+	img, err := s.load(path)
+	if err != nil {
+		return err
+	}
+	return s.drawImageRegion(path, img, image.Rect(sx, sy, sx+sw, sy+sh), x, y, width, height, rotation)
+}
+
+func (s *surface) drawImageRegion(path string, img image.Image, source image.Rectangle, x, y, width, height, rotation int) error {
 	// Cache unrotated resamples for sparse animation captures. The same source
 	// pixels and CatmullRom filter are used; only repeated filtering is skipped.
 	if rotation == 0 {
 		if s.scaled == nil {
 			s.scaled = make(map[scaledKey]*image.RGBA)
 		}
-		key := scaledKey{path, width, height}
+		key := scaledKey{path, width, height, source}
 		scaled := s.scaled[key]
 		if scaled == nil {
 			scaled = image.NewRGBA(image.Rect(0, 0, width, height))
-			transform := f64.Aff3{float64(width) / float64(img.Bounds().Dx()), 0, 0, 0, float64(height) / float64(img.Bounds().Dy()), 0}
-			xdraw.CatmullRom.Transform(scaled, transform, img, img.Bounds(), xdraw.Over, nil)
+			transform := f64.Aff3{float64(width) / float64(source.Dx()), 0, -float64(source.Min.X) * float64(width) / float64(source.Dx()), 0, float64(height) / float64(source.Dy()), -float64(source.Min.Y) * float64(height) / float64(source.Dy())}
+			xdraw.CatmullRom.Transform(scaled, transform, img, source, xdraw.Over, nil)
 			// Mechanism motion must not make an unbounded cache of intermediate sizes.
-			if len(s.scaled) >= 64 {
+			if len(s.scaled) >= 512 {
 				clear(s.scaled)
 			}
 			s.scaled[key] = scaled
@@ -184,10 +201,12 @@ func (s *surface) DrawImageFileTo(path string, x, y, width, height, rotation int
 	}
 	a := float64(rotation) * math.Pi / 180
 	cos, sin := math.Cos(a), math.Sin(a)
-	sx, sy := float64(width)/float64(img.Bounds().Dx()), float64(height)/float64(img.Bounds().Dy())
+	sx, sy := float64(width)/float64(source.Dx()), float64(height)/float64(source.Dy())
 	cx, cy := float64(x)+float64(width)/2, float64(y)+float64(height)/2
 	transform := f64.Aff3{cos * sx, -sin * sy, cx - cos*float64(width)/2 + sin*float64(height)/2, sin * sx, cos * sy, cy - sin*float64(width)/2 - cos*float64(height)/2}
-	xdraw.CatmullRom.Transform(s.pixels, transform, img, img.Bounds(), xdraw.Over, nil)
+	transform[2] -= transform[0]*float64(source.Min.X) + transform[1]*float64(source.Min.Y)
+	transform[5] -= transform[3]*float64(source.Min.X) + transform[4]*float64(source.Min.Y)
+	xdraw.CatmullRom.Transform(s.pixels, transform, img, source, xdraw.Over, nil)
 	return nil
 }
 

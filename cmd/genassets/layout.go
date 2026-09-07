@@ -98,6 +98,7 @@ func tableHardwareImage() image.Image {
 		}
 		c.bumperFastener(cx, cy+35)
 	}
+	c.instrument(218, 970, 447, 1043)
 	return c.finishAlpha()
 }
 
@@ -124,13 +125,10 @@ func tableForegroundImage() image.Image {
 	for _, p := range [][2]float64{{20, 21}, {700, 21}, {20, 1059}, {700, 1059}} {
 		c.bumperFastener(p[0], p[1])
 	}
-	for _, bounds := range [][4]float64{{42, 12, 373, 49}, {438, 12, 675, 49}} {
-		c.roundedRect(bounds[0]-3, bounds[1]-3, bounds[2]+3, bounds[3]+3, 9, black, 1)
-		c.roundedRect(bounds[0]-1, bounds[1]-1, bounds[2]+1, bounds[3]+1, 8, silver, .9)
-		c.roundedRect(bounds[0], bounds[1], bounds[2], bounds[3], 7, metal, .85)
-		c.roundedRect(bounds[0]+1, bounds[1]+1, bounds[2]-1, bounds[3]-1, 6, black, 1)
-		c.line(bounds[0]+9, bounds[3]-2, bounds[2]-9, bounds[3]-2, 1, cyan, .25)
-	}
+	c.instrument(42, 10, 373, 51)
+	c.instrument(438, 10, 675, 51)
+	c.line(244, 18, 244, 43, .7, metal, .6)
+	c.line(539, 18, 539, 43, .7, metal, .6)
 	c.line(table.PlayfieldCenter-121, 1073, table.PlayfieldCenter+121, 1073, 10, graphite, 1)
 	c.line(table.PlayfieldCenter-121, 1069, table.PlayfieldCenter+121, 1069, 2, metal, .8)
 	return c.finishAlpha()

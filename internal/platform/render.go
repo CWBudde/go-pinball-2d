@@ -19,6 +19,7 @@ var requiredImages = []string{
 	"assets/images/table-hardware.png",
 	"assets/images/table-foreground.png",
 	"assets/images/logo.png",
+	instrumentFont,
 	"assets/images/favicon.png",
 	"assets/images/ball.png",
 	"assets/images/ball-shadow.png",
@@ -47,7 +48,6 @@ var (
 	ink     = draw.RGB(.02, .03, .09)
 	cyan    = draw.RGB(.13, .91, 1)
 	magenta = draw.RGB(1, .17, .68)
-	lime    = draw.RGB(.66, 1, .31)
 	amber   = draw.RGB(1, .75, .22)
 	red     = draw.RGB(1, .22, .3)
 )
@@ -90,6 +90,10 @@ func (r *renderer) preload(window draw.Window) bool {
 }
 
 func (r *renderer) draw(window draw.Window, current *game.Game, statusError error) {
+	// Assets have antialiased source edges, but nearest-neighbor minification
+	// discards that coverage. Let the backend filter them at the current size
+	// (trilinear mipmaps on GLFW), including rotated and moving sprites.
+	window.BlurImages(true)
 	width, height := window.Size()
 	window.FillRect(0, 0, width, height, ink)
 	view := newViewport(width, height)
@@ -110,11 +114,11 @@ func (r *renderer) draw(window draw.Window, current *game.Game, statusError erro
 	// mechanisms/ball, safe foreground covers, emission/effects, instrument HUD.
 	r.image(window, "assets/images/table-shadows.png", view.offsetX, view.offsetY, view.width, view.height, 0)
 	r.image(window, "assets/images/table-hardware.png", view.offsetX, view.offsetY, view.width, view.height, 0)
+	r.drawTableDisplays(window, current, view)
 	r.drawTable(window, current, view)
 	r.image(window, "assets/images/table-foreground.png", view.offsetX, view.offsetY, view.width, view.height, 0)
 	r.drawEffects(window, view)
 	r.drawHUD(window, current, view)
-	r.drawState(window, current, view)
 
 	visibleError := r.loadError
 	if visibleError == nil {
@@ -171,53 +175,6 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 	r.drawPlunger(window, current, view)
 	if current.Ball.Active {
 		r.drawBall(window, current, view)
-	}
-}
-
-func (r *renderer) drawHUD(window draw.Window, current *game.Game, view viewport) {
-	scale := float32(view.scale)
-	r.text(window, fmt.Sprintf("SCORE %08d", current.Score), view.x(55), view.y(17), scale*.9, cyan)
-	r.text(window, fmt.Sprintf("BALL %d / 3", min(current.BallNumber, 3)), view.x(452), view.y(17), scale*.8, cyan)
-	r.text(window, "HIGH", view.x(285), view.y(18), scale*.35, draw.RGB(.55, .65, .68))
-	r.text(window, fmt.Sprintf("%08d", current.HighScore), view.x(285), view.y(31), scale*.35, draw.RGB(.55, .65, .68))
-	r.text(window, "BONUS", view.x(597), view.y(18), scale*.35, amber)
-	r.text(window, fmt.Sprintf("%d x%d", current.Bonus, current.BonusMultiplier), view.x(597), view.y(31), scale*.35, amber)
-	r.centerText(window, "CIRCUIT COMPLETE", view.x(510), view.y(663), scale*.42, magenta)
-	for i, lane := range current.Table.RolloverLanes {
-		center := lane.Segment.A.Add(lane.Segment.B).Mul(.5)
-		r.centerText(window, fmt.Sprintf("0%d", i+1), view.x(center.X), view.y(center.Y+48), scale*.42, cyan)
-	}
-}
-
-func (r *renderer) drawState(window draw.Window, current *game.Game, view viewport) {
-	centerX := view.offsetX + view.width/2
-	centerY := view.offsetY + view.height/2
-	switch current.State {
-	case game.Loading:
-		r.centerText(window, "LOADING RELAY...", centerX, centerY, float32(math.Max(1, view.scale*1.3)), cyan)
-	case game.Attract:
-		r.centerText(window, "PRESS ENTER TO CONNECT", centerX, view.y(711), float32(view.scale*.7), cyan)
-		r.centerText(window, "A / LEFT     D / RIGHT", centerX, view.y(741), float32(view.scale*.48), draw.LightGray)
-	case game.BallReady:
-		r.centerText(window, "HOLD SPACE / DOWN TO CHARGE", centerX, view.y(720), float32(view.scale*.62), amber)
-		barWidth := view.size(260)
-		barHeight := view.size(16)
-		strokeWidth := view.stroke(tableOutlineWidth)
-		inset := (strokeWidth + 1) / 2
-		r.thickRect(window, centerX-barWidth/2, view.y(750), barWidth, barHeight, draw.White, strokeWidth)
-		fillWidth := int(float64(max(0, barWidth-2*inset)) * current.PlungerCharge)
-		window.FillRect(centerX-barWidth/2+inset, view.y(750)+inset, fillWidth, max(1, barHeight-2*inset), magenta)
-	case game.Paused:
-		window.FillRect(view.offsetX, view.offsetY, view.width, view.height, draw.RGBA(0, 0, 0, .68))
-		r.centerText(window, "PAUSED", centerX, centerY, float32(math.Max(1.2, view.scale*1.6)), amber)
-		r.centerText(window, "PRESS P TO RESUME", centerX, centerY+view.size(54), float32(math.Max(.7, view.scale*.8)), draw.White)
-	case game.BallLost:
-		r.centerText(window, "BALL LOST", centerX, centerY, float32(math.Max(1, view.scale*1.35)), red)
-	case game.GameOver:
-		window.FillRect(view.offsetX, view.offsetY, view.width, view.height, draw.RGBA(0, 0, 0, .58))
-		r.centerText(window, "GAME OVER", centerX, centerY-view.size(35), float32(math.Max(1.2, view.scale*1.6)), magenta)
-		r.centerText(window, "PRESS ENTER TO RESTART", centerX, centerY+view.size(36), float32(math.Max(.75, view.scale*.85)), lime)
-	case game.Playing:
 	}
 }
 

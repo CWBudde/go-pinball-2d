@@ -20,8 +20,8 @@ retain an original, readable 2D pinball game. A pixel-perfect clone is unnecessa
   launch, play, raised flippers, and pause; reference concept saved in the repo.
 
 Recent validation passed for WASM tests/lint/build, core and asset checks, and
-engine captures at 360×540, 720×1080, and 1440×2160. Native graphics checks remain dependent
-on unavailable OpenGL/X11 development headers in this environment. Completed
+engine captures at 360×540, 720×1080, and 1440×2160. Native OpenGL/X11
+dependencies are now installed; direct GLFW captures and native tests run here. Completed
 infrastructure does not mean the visual target has been reached.
 
 ## What still separates the rendering from the reference
@@ -33,7 +33,7 @@ infrastructure does not mean the visual target has been reached.
 | Materials | Shared chrome/rubber/glass treatment across mechanisms; highlights are baked | Beveled chrome, dark rubber, smoked plastic, textured graphite |
 | Light | Contact shadows, local reflected light, and timed hardware responses | Selective LED bloom, reflected color, contact shadows and dark recesses |
 | Detail | Fitted target sockets, routing pads, fasteners, panel seams, and grain | Routed circuitry around fitted housings, brackets, fasteners and inserts |
-| Presentation | Plain score panels and overlay text | Integrated instrument displays and a consistent technical type system |
+| Presentation | Inset instruments, shared technical lettering, and an apron status screen | Integrated instrument displays and a consistent technical type system |
 
 The priority is composition and physical construction, followed by materials
 and lighting. Adding more circuit lines alone will not close this gap.
@@ -195,19 +195,44 @@ Pause/cleanup, target collider timing/reset, repeatable draws, cached alpha
 compositing, material footprint, asset freshness, core/WASM tests, lint, and
 build/distribution checks pass. Typography remains Phase 5.
 
+**Slingshot refinement:** thicker-looking rubber bases, polished cover bevels,
+shaded smoked acrylic, bent cyan/pink traces and vias, and segmented under-cover
+diffusers bring the lower pads closer to the reference. These details remain baked
+into the existing hardware layer with unchanged lane geometry. Engine comparisons
+are in `output/preview-slings/`; 2× impact/recovery captures are in
+`output/preview-slings-2x/`. Asset freshness, core tests, lint, formatting, and
+distribution verification pass.
+
 ## Phase 5 — finish displays and visual hierarchy
 
-- [ ] Build inset score/ball displays with technical or segmented numerals;
+- [x] Build inset score/ball displays with technical or segmented numerals;
   integrate bonus, lane, and bank labels into dedicated table areas.
-- [ ] Refine the title and relay symbol to match the hardware's finish. Use a
+- [x] Refine the title and relay symbol to match the hardware's finish. Use a
   consistent font atlas or equivalent shared typography for capture and runtime.
-- [ ] Design attract, charge, pause, ball-lost, and game-over treatments as part
+- [x] Design attract, charge, pause, ball-lost, and game-over treatments as part
   of the table presentation. Keep instructions legible without covering active shots.
-- [ ] Balance detail and contrast at 720×1080 and 360×540; inspect 1440×2160 for
+- [x] Balance detail and contrast at 720×1080 and 360×540; inspect 1440×2160 for
   blurry assets, seams, halos, and inconsistent shading.
 
 **Exit:** scores, ball, flippers, and objectives remain immediately readable;
 labels do not float over mechanisms or collide with the cabinet.
+
+**Completed:** inset score/ball glass, readable high-score and bonus instruments,
+framed lane numbers and a relay-bank progress display. An original technical
+atlas supplies the same glyphs to GLFW, WASM, and software captures; its letter
+paths also author the beveled title, relay identity, and printed labels. Long
+scores fit their display without truncation. The apron shows attract, launch and
+charge, pause, ball lost, game over, and context-sensitive relay objectives.
+Lower displays render below the ball and leave the corrected physics unchanged.
+
+**Evidence:** matching engine comparisons in `output/preview-phase5/`, with
+half-size states in `output/preview-phase5-small/` and a 2× detail capture in
+`output/preview-phase5-2x/`. The capture harness now exercises partial/full charge
+and actual drain/serve transitions through a complete three-ball game. Native
+GLFW captures verify texture filtering; source-region caching, score overflow,
+state text bounds, native/WASM tests, asset freshness, formatting, lint, and
+build/distribution checks cover the change. Full-table comparison and remaining
+material/composition tuning remain Phase 6.
 
 ## Phase 6 — compare, tune, and verify
 

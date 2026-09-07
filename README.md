@@ -19,6 +19,18 @@ just run-web
 Open <http://localhost:8080>. The build is written to the ignored `dist/`
 directory and is the same artifact deployed by GitHub Pages.
 
+To build and launch a native window, run:
+
+```sh
+just run-native
+```
+
+The Linux version uses GLFW/OpenGL and requires a C compiler and the X11/OpenGL
+development libraries. On Debian/Ubuntu these are available as `build-essential`, `pkg-config`,
+`libx11-dev`, `libxrandr-dev`, `libgl1-mesa-dev`, `libxcursor-dev`, `libxinerama-dev`,
+`libxxf86vm-dev`, and `libxi-dev`. Python is only needed for serving the browser version.
+Use `just build` to compile without launching the game.
+
 ## Controls
 
 | Control             | Action                               |
@@ -57,7 +69,7 @@ All artwork and sound effects are generated specifically for this project. See
 ## Render engine screenshots
 
 Run `just render-preview` to write PNGs for attract, launch-ready, playing,
-raised flippers, pause, and a scoring rally into `output/preview/`. This advances the real
+raised flippers, pause, a scoring rally, ball lost, and game over into `output/preview/`. This advances the real
 simulation and calls the production renderer through a software drawing
 surface. It uses Node.js and Go's WebAssembly runtime; it does not open a
 browser or require OpenGL, SDL, or a display server.
@@ -76,7 +88,8 @@ The crops retain the capture's pixel scale. Inspect the material treatment at 2Ã
 ./scripts/render-preview.sh -width 1440 -height 2160 -out output/preview-phase3-2x
 ```
 
-Use `-frame rally` (or `attract`, `ready`, `playing`, `flippers`, `paused`)
+Use `-frame rally` (or `attract`, `uncharged`, `charge`, `ready`, `playing`,
+`flippers`, `paused`, `lost`, `gameover`)
 to save one state while still running the scripted simulation checks. This is
 useful for expensive double-size captures.
 
@@ -97,11 +110,12 @@ half charge, full charge, and release. `-colliders` also works with sequences.
 
 `PreviewRenderer.Advance` accepts the events returned by `Game.Update` once per
 update, even between saved frames; `Draw` does not advance animation time.
-The software surface caches up to 64 unrotated resamples for faster sequences
+The software surface caches up to 512 unrotated image/glyph resamples for faster sequences
 and antialiases thick response strokes.
 
-The capture surface uses Go Mono for text and software image filtering, so
-font rasterization and antialiasing may differ slightly from the display backend.
+Gameplay typography uses the same original glyph atlas on every backend.
+Software captures use CatmullRom image filtering; native GLFW uses GPU mipmaps.
+Diagnostic text and blockout captions retain backend fonts (Go Mono in captures).
 
 To inspect table geometry during layout work, use engine capture modes:
 
@@ -114,3 +128,10 @@ The overlay shows solid collision surfaces in cyan, sensors in amber, flippers
 in magenta, and the ball in white. The blockout uses flat geometry to check
 composition without textures. Sprite bounds and anchors live in
 `internal/table/artwork.go`; static guide paths come from `internal/table/table.go`.
+
+The score, ball, bonus, and apron status display use an original technical font
+atlas shared by native, WASM, and software rendering. The apron shows launch
+instructions, charge level, pause/resume, and end-of-ball messages; during play
+it shows the current relay objective. These flush displays render beneath the
+ball. The capture sequence exercises the drain sensor and all three balls to
+reach game over; `charge` and `ready` show partial and full plunger charge.

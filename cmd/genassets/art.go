@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 
+	"github.com/CWBudde/go-pinball-2d/internal/display"
 	"github.com/CWBudde/go-pinball-2d/internal/table"
 )
 
@@ -82,7 +83,23 @@ func playfieldMarkingsImage() image.Image {
 	// Screen-printed center identity and a real switching-contact diagram.
 	c.wordmark("NEON", table.TitleOrigin.X, table.TitleOrigin.Y, 8.0, cyan)
 	c.wordmark("RELAY", table.TitleOrigin.X-4, table.TitleOrigin.Y+55, 6.4, pink)
-	c.relay(344, table.TitleOrigin.Y+116, .9, cyan)
+	c.line(294, 557, 314, 557, 5, black, 1)
+	c.line(314, 557, 364, 543, 5, metal, 1)
+	c.glowLine(294, 555, 314, 555, 2, cyan, .8)
+	c.glowLine(314, 555, 364, 541, 2, cyan, .8)
+	c.glowLine(360, 555, 396, 555, 2, pink, .8)
+	for _, x := range []float64{314, 360} {
+		c.circle(x, 555, 5, black, 1)
+		c.ring(x, 555, 4.5, 2.8, silver, .9)
+		c.ring(x, 555, 3.8, 2.8, cyan, .8)
+	}
+	// Printed legends stay in dedicated flush areas, below live balls.
+	for i, x := range []float64{239, 359, 479} {
+		c.instrument(x-23, 229, x+23, 252)
+		c.printedText([]string{"01", "02", "03"}[i], x-11, 235, 10, silver)
+	}
+	c.instrument(453, 651, 569, 699)
+	c.printedText("RELAY BANK", 465, 660, 9, pink)
 	for i := 0; i < 3; i++ {
 		y := 764.0 + float64(i)*23
 		c.glowLine(table.PlayfieldCenter-19, y+11, table.PlayfieldCenter, y, 2, pink, .55)
@@ -140,24 +157,33 @@ func (c *canvas) relay(x, y, scale float64, col color.NRGBA) {
 // Continuous outline lettering uses original authored paths rather than an
 // external font, so the identity stays crisp and reproducible in every build.
 func (c *canvas) wordmark(text string, x, y, unit float64, col color.NRGBA) {
-	letters := map[rune][][][2]float64{
-		'N': {{{0, 6}, {0, 0}, {4, 6}, {4, 0}}},
-		'E': {{{4, 0}, {0, 0}, {0, 6}, {4, 6}}, {{0, 3}, {3.4, 3}}},
-		'O': {{{.5, 0}, {3.5, 0}, {4, .5}, {4, 5.5}, {3.5, 6}, {.5, 6}, {0, 5.5}, {0, .5}, {.5, 0}}},
-		'R': {{{0, 6}, {0, 0}, {3.5, 0}, {4, .5}, {4, 2.5}, {3.5, 3}, {0, 3}}, {{2, 3}, {4, 6}}},
-		'L': {{{0, 0}, {0, 6}, {4, 6}}},
-		'A': {{{0, 6}, {0, 1}, {1, 0}, {3, 0}, {4, 1}, {4, 6}}, {{0, 3}, {4, 3}}},
-		'Y': {{{0, 0}, {2, 3}, {4, 0}}, {{2, 3}, {2, 6}}},
-	}
-	for _, ch := range text {
-		for _, path := range letters[ch] {
-			for i := 1; i < len(path); i++ {
-				a, b := path[i-1], path[i]
-				c.glowLine(x+a[0]*unit, y+a[1]*unit, x+b[0]*unit, y+b[1]*unit, unit*.4, col, .7)
-				c.line(x+a[0]*unit, y+a[1]*unit, x+b[0]*unit, y+b[1]*unit, unit*.1, cyanWhite, .85)
+	// Complete each material pass before the next, preserving continuous joins.
+	for _, layer := range []struct {
+		dx, dy, width float64
+		col           color.NRGBA
+		glow          bool
+	}{
+		{1, 2, .7, black, false},
+		{0, 0, .58, metal, false},
+		{0, 0, .3, col, true},
+		{-.3, -.5, .09, cyanWhite, false},
+	} {
+		cursor := x
+		for _, ch := range text {
+			for _, path := range display.Paths(ch) {
+				for i := 1; i < len(path); i++ {
+					a, b := path[i-1], path[i]
+					ax, ay := cursor+a[0]*unit+layer.dx, y+a[1]*unit+layer.dy
+					bx, by := cursor+b[0]*unit+layer.dx, y+b[1]*unit+layer.dy
+					if layer.glow {
+						c.glowLine(ax, ay, bx, by, unit*layer.width, layer.col, .85)
+					} else {
+						c.line(ax, ay, bx, by, unit*layer.width, layer.col, .9)
+					}
+				}
 			}
+			cursor += unit * 6
 		}
-		x += unit * 6
 	}
 }
 

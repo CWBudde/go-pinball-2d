@@ -427,6 +427,7 @@ func generatedAssets() ([]generatedFile, error) {
 		{"images/table-hardware.png", tableHardwareImage},
 		{"images/table-foreground.png", tableForegroundImage},
 		{"images/logo.png", logoImage},
+		{"images/instrument-font.png", fontAtlasImage},
 		{"images/favicon.png", faviconImage},
 		{"images/ball.png", ballImage},
 		{"images/ball-shadow.png", ballShadowImage},
