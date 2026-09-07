@@ -17,7 +17,7 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(files), 19; got != want {
+	if got, want := len(files), 24; got != want {
 		t.Fatalf("generated %d files, want %d", got, want)
 	}
 	if err := checkAssets(filepath.Join("..", "..", "assets"), files); err != nil {
@@ -25,18 +25,23 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 	}
 
 	dimensions := map[string]imageSize{
-		"images/background.png": {720, 1080},
-		"images/logo.png":       {640, 200},
-		"images/favicon.png":    {64, 64},
-		"images/ball.png":       {64, 64},
-		"images/flipper.png":    {180, 64},
-		"images/bumper.png":     {128, 128},
-		"images/post.png":       {48, 48},
-		"images/target.png":     {64, 96},
-		"images/lane-light.png": {48, 96},
-		"images/plunger.png":    {56, 180},
-		"images/glow.png":       {192, 192},
-		"images/particle.png":   {32, 32},
+		"images/background.png":       {720, 1080},
+		"images/table-shadows.png":    {720, 1080},
+		"images/table-hardware.png":   {720, 1080},
+		"images/table-foreground.png": {720, 1080},
+		"images/logo.png":             {640, 200},
+		"images/favicon.png":          {64, 64},
+		"images/ball.png":             {64, 64},
+		"images/flipper.png":          {180, 64},
+		"images/bumper.png":           {128, 128},
+		"images/post.png":             {48, 48},
+		"images/target.png":           {64, 96},
+		"images/target-down.png":      {64, 96},
+		"images/lane-light.png":       {48, 96},
+		"images/lane-light-off.png":   {48, 96},
+		"images/plunger.png":          {56, 180},
+		"images/glow.png":             {192, 192},
+		"images/particle.png":         {32, 32},
 	}
 	for _, file := range files {
 		if strings.HasSuffix(file.path, ".png") {

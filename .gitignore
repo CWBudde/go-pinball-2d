@@ -7,3 +7,6 @@ wasm_exec.js
 /.tmp/
 *.test
 *.out
+
+# Reproducible engine frame captures.
+/output/preview*/

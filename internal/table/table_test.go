@@ -164,10 +164,12 @@ func TestGoldenBallTrajectory(t *testing.T) {
 	want := map[int]physics.Vec{
 		60:  physics.V(655, 571.645833333334),
 		120: physics.V(655, 205.791666666669),
-		240: physics.V(239.921484223645, 163.191701461161),
-		360: physics.V(212.226756675774, 415.549033434085),
+		240: physics.V(370.539814501204, 107.722554539464),
+		360: physics.V(486.252606622681, 77.521200147571),
+		600: physics.V(0, 0),
+		960: physics.V(0, 0),
 	}
-	for step := 1; step <= 360; step++ {
+	for step := 1; step <= 960; step++ {
 		definition.Flippers[0].SetEngaged(step%97 < 12)
 		definition.Flippers[1].SetEngaged(step%131 < 15)
 		world.StepFlippers(1.0 / 240.0)

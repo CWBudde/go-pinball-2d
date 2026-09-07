@@ -75,3 +75,21 @@ func drawCanvasRect(x, y, width, height int, color draw.Color, strokeWidth int) 
 	ctx.Call("restore")
 	return true
 }
+
+// Use a system monospace face for the instrument labels and score displays.
+func drawCanvasText(text string, x, y int, scale float32, color draw.Color, centered bool) bool {
+	ctx := beginCanvasStroke(color, 1)
+	if !ctx.Truthy() {
+		return false
+	}
+	ctx.Set("font", fmt.Sprintf("500 %.2fpx ui-monospace, monospace", 24*scale))
+	ctx.Set("fillStyle", ctx.Get("strokeStyle"))
+	ctx.Set("textBaseline", "top")
+	ctx.Set("textAlign", "left")
+	if centered {
+		ctx.Set("textAlign", "center")
+	}
+	ctx.Call("fillText", text, x, y)
+	ctx.Call("restore")
+	return true
+}

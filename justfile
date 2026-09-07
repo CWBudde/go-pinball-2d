@@ -57,3 +57,7 @@ default: build
 fix:
     just lint-fix
     just fmt
+
+# Capture actual engine frames without a browser or native graphics libraries.
+render-preview:
+    ./scripts/render-preview.sh

@@ -8,11 +8,15 @@ import (
 
 	"github.com/CWBudde/go-pinball-2d/internal/game"
 	"github.com/CWBudde/go-pinball-2d/internal/physics"
+	"github.com/CWBudde/go-pinball-2d/internal/table"
 	"github.com/gonutz/prototype/draw"
 )
 
 var requiredImages = []string{
 	"assets/images/background.png",
+	"assets/images/table-shadows.png",
+	"assets/images/table-hardware.png",
+	"assets/images/table-foreground.png",
 	"assets/images/logo.png",
 	"assets/images/favicon.png",
 	"assets/images/ball.png",
@@ -20,28 +24,20 @@ var requiredImages = []string{
 	"assets/images/bumper.png",
 	"assets/images/post.png",
 	"assets/images/target.png",
+	"assets/images/target-down.png",
 	"assets/images/lane-light.png",
+	"assets/images/lane-light-off.png",
 	"assets/images/plunger.png",
 	"assets/images/glow.png",
 	"assets/images/particle.png",
 }
 
-const (
-	tableOutlineWidth       = 3
-	flipperAssetWidth       = 180.0
-	flipperAssetHeight      = 64.0
-	flipperAssetPivotX      = 30.0
-	flipperAssetTipX        = 148.0
-	flipperAssetAnchorWidth = flipperAssetTipX - flipperAssetPivotX
-	flipperAssetCenterX     = flipperAssetWidth / 2
-	flipperAnchorCenterX    = (flipperAssetPivotX + flipperAssetTipX) / 2
-)
+const tableOutlineWidth = 3
 
 var (
 	ink     = draw.RGB(.02, .03, .09)
 	cyan    = draw.RGB(.13, .91, 1)
 	magenta = draw.RGB(1, .17, .68)
-	violet  = draw.RGB(.49, .28, 1)
 	lime    = draw.RGB(.66, 1, .31)
 	amber   = draw.RGB(1, .75, .22)
 	red     = draw.RGB(1, .22, .3)
@@ -118,7 +114,12 @@ func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64,
 	}
 
 	r.image(window, "assets/images/background.png", view.offsetX, view.offsetY, view.width, view.height, 0)
+	// Layer order: flat playfield, cast shadows, static mechanisms, dynamic
+	// mechanisms/ball, safe foreground covers, emission/effects, instrument HUD.
+	r.image(window, "assets/images/table-shadows.png", view.offsetX, view.offsetY, view.width, view.height, 0)
+	r.image(window, "assets/images/table-hardware.png", view.offsetX, view.offsetY, view.width, view.height, 0)
 	r.drawTable(window, current, view)
+	r.image(window, "assets/images/table-foreground.png", view.offsetX, view.offsetY, view.width, view.height, 0)
 	r.drawEffects(window, view, elapsed)
 	r.drawHUD(window, current, view)
 	r.drawState(window, current, view)
@@ -130,66 +131,49 @@ func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64,
 	if visibleError != nil {
 		window.FillRect(view.offsetX, view.offsetY+view.height-view.size(52), view.width, view.size(52), draw.RGBA(.18, .01, .04, .94))
 		message := truncate("ERROR: "+visibleError.Error(), 88)
-		window.DrawScaledText(message, view.offsetX+view.size(14), view.offsetY+view.height-view.size(38), float32(math.Max(.65, view.scale*.8)), red)
+		r.text(window, message, view.offsetX+view.size(14), view.offsetY+view.height-view.size(38), float32(math.Max(.65, view.scale*.8)), red)
 	}
 }
 
 func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewport) {
 	definition := current.Table
-	drawLines := func(walls []physics.LineCollider) {
-		for _, line := range walls {
-			r.thickLine(window, view, line.Segment, cyan, tableOutlineWidth)
-		}
-	}
-	drawLines(definition.OuterWalls)
-	drawLines(definition.ShooterLane)
-	drawLines(definition.GuideWalls)
-	for _, sling := range definition.Slingshots {
-		r.thickLine(window, view, physics.Segment{A: sling.Triangle[0], B: sling.Triangle[1]}, magenta, tableOutlineWidth)
-		r.thickLine(window, view, physics.Segment{A: sling.Triangle[1], B: sling.Triangle[2]}, magenta, tableOutlineWidth)
-		r.thickLine(window, view, physics.Segment{A: sling.Triangle[2], B: sling.Triangle[0]}, magenta, tableOutlineWidth)
-	}
-
+	// Contact geometry and sprite anchors come from the shared table definition.
 	for _, lane := range definition.RolloverLanes {
 		midpoint := lane.Segment.A.Add(lane.Segment.B).Mul(.5)
-		color := violet
+		path := "assets/images/lane-light-off.png"
 		if current.LaneLit(lane.ID) {
-			color = lime
+			path = "assets/images/lane-light.png"
 		}
-		r.spriteCentered(window, "assets/images/lane-light.png", view, midpoint, 28, 56, 90)
-		x, y := view.point(midpoint)
-		r.thickEllipse(window, x-view.size(13), y-view.size(6), view.size(26), view.size(12), color, view.stroke(tableOutlineWidth))
+		r.spriteCentered(window, path, view, midpoint, 34, 68, 0)
 	}
 
 	for _, bumper := range definition.Bumpers {
-		r.spriteCentered(window, "assets/images/bumper.png", view, bumper.Center, bumper.Radius*2.3, bumper.Radius*2.3, 0)
+		r.placedSprite(window, "assets/images/bumper.png", view, table.BumperFrame.Place(bumper.Center, bumper.Radius/table.BumperFrame.ContactRadius, 0))
 	}
 	for _, post := range definition.Posts {
-		r.spriteCentered(window, "assets/images/post.png", view, post.Center, post.Radius*2.4, post.Radius*2.4, 0)
+		r.placedSprite(window, "assets/images/post.png", view, table.PostFrame.Place(post.Center, post.Radius/table.PostFrame.ContactRadius, 0))
 	}
 	for _, target := range definition.DropTargets {
+		path := "assets/images/target.png"
 		if current.TargetDown(target.ID) {
-			continue
+			path = "assets/images/target-down.png"
 		}
 		midpoint := target.Segment.A.Add(target.Segment.B).Mul(.5)
-		angle := math.Atan2(target.Segment.B.Y-target.Segment.A.Y, target.Segment.B.X-target.Segment.A.X)*180/math.Pi - 90
-		r.spriteCentered(window, "assets/images/target.png", view, midpoint, 32, 48, int(math.Round(angle)))
+		angle := math.Atan2(target.Segment.B.Y-target.Segment.A.Y, target.Segment.B.X-target.Segment.A.X) - math.Pi/2
+		// The 84-pixel housing length fits the capsule's complete contact extent.
+		scale := (target.Segment.B.Sub(target.Segment.A).Length() + 2*target.Radius) / table.TargetFrame.ContactLength
+		r.placedSprite(window, path, view, table.TargetFrame.Place(midpoint, scale, angle))
 	}
 
 	for _, flipper := range current.World.Flippers {
-		midpoint := flipper.Pivot.Add(flipper.Tip()).Mul(.5)
-		angle := int(math.Round(flipper.Angle * 180 / math.Pi))
-		scale := flipper.Length / flipperAssetAnchorWidth
-		centerOffset := (flipperAssetCenterX - flipperAnchorCenterX) * scale
-		center := midpoint.Add(physics.V(math.Cos(flipper.Angle), math.Sin(flipper.Angle)).Mul(centerOffset))
-		r.spriteCentered(window, "assets/images/flipper.png", view, center, flipperAssetWidth*scale, flipperAssetHeight*scale, angle)
+		scale := flipper.Length / table.FlipperFrame.Tip.Sub(table.FlipperFrame.Anchor).Length()
+		r.placedSprite(window, "assets/images/flipper.png", view, table.FlipperFrame.Place(flipper.Pivot, scale, flipper.Angle))
 	}
 
 	plungerY := definition.Plunger.Position.Y - 52 + current.PlungerCharge*22
 	r.spriteCentered(window, "assets/images/plunger.png", view, physics.V(definition.Plunger.Position.X, plungerY), 36, 116, 0)
 	if current.Ball.Active {
-		r.spriteCentered(window, "assets/images/glow.png", view, current.Ball.Position, 58, 58, 0)
-		r.spriteCentered(window, "assets/images/ball.png", view, current.Ball.Position, current.Ball.Radius*2, current.Ball.Radius*2, 0)
+		r.placedSprite(window, "assets/images/ball.png", view, table.BallFrame.Place(current.Ball.Position, current.Ball.Radius/table.BallFrame.ContactRadius, 0))
 	}
 }
 
@@ -205,6 +189,13 @@ func (r *renderer) drawEffects(window draw.Window, view viewport, elapsed float6
 		distance := 58 * progress
 		position := effect.position.Add(physics.V(math.Cos(angle)*distance, math.Sin(angle)*distance))
 		size := 15 * (1 - progress*.65)
+		tail := position.Sub(physics.V(math.Cos(angle)*size, math.Sin(angle)*size))
+		r.thickLine(window, view, physics.Segment{A: tail, B: position}, draw.RGBA(.3, .94, 1, float32(1-progress)), 1)
+		if index%5 == 0 {
+			x, y := view.point(effect.position)
+			radius := view.size(20 + progress*40)
+			r.thickEllipse(window, x-radius, y-radius, radius*2, radius*2, draw.RGBA(.13, .91, 1, float32((1-progress)*.45)), view.stroke(1))
+		}
 		r.spriteCentered(window, "assets/images/particle.png", view, position, size, size, int(angle*180/math.Pi))
 		alive = append(alive, effect)
 	}
@@ -212,14 +203,18 @@ func (r *renderer) drawEffects(window draw.Window, view viewport, elapsed float6
 }
 
 func (r *renderer) drawHUD(window draw.Window, current *game.Game, view viewport) {
-	scale := float32(math.Max(.72, view.scale*.92))
-	x := view.offsetX + view.size(24)
-	y := view.offsetY + view.size(18)
-	window.DrawScaledText(fmt.Sprintf("SCORE %08d", current.Score), x, y, scale, draw.White)
-	window.DrawScaledText(fmt.Sprintf("HIGH  %08d", current.HighScore), x, y+view.size(27), scale*.72, cyan)
-	right := view.offsetX + view.width - view.size(205)
-	window.DrawScaledText(fmt.Sprintf("BALL %d/3", min(current.BallNumber, 3)), right, y, scale*.78, amber)
-	window.DrawScaledText(fmt.Sprintf("BONUS %d x%d", current.Bonus, current.BonusMultiplier), right, y+view.size(27), scale*.68, lime)
+	scale := float32(view.scale)
+	r.text(window, fmt.Sprintf("SCORE %08d", current.Score), view.x(55), view.y(17), scale*.9, cyan)
+	r.text(window, fmt.Sprintf("BALL %d / 3", min(current.BallNumber, 3)), view.x(452), view.y(17), scale*.8, cyan)
+	r.text(window, "HIGH", view.x(285), view.y(18), scale*.35, draw.RGB(.55, .65, .68))
+	r.text(window, fmt.Sprintf("%08d", current.HighScore), view.x(285), view.y(31), scale*.35, draw.RGB(.55, .65, .68))
+	r.text(window, "BONUS", view.x(597), view.y(18), scale*.35, amber)
+	r.text(window, fmt.Sprintf("%d x%d", current.Bonus, current.BonusMultiplier), view.x(597), view.y(31), scale*.35, amber)
+	r.centerText(window, "CIRCUIT COMPLETE", view.x(510), view.y(663), scale*.42, magenta)
+	for i, lane := range current.Table.RolloverLanes {
+		center := lane.Segment.A.Add(lane.Segment.B).Mul(.5)
+		r.centerText(window, fmt.Sprintf("0%d", i+1), view.x(center.X), view.y(center.Y+48), scale*.42, cyan)
+	}
 }
 
 func (r *renderer) drawState(window draw.Window, current *game.Game, view viewport) {
@@ -229,11 +224,10 @@ func (r *renderer) drawState(window draw.Window, current *game.Game, view viewpo
 	case game.Loading:
 		r.centerText(window, "LOADING RELAY...", centerX, centerY, float32(math.Max(1, view.scale*1.3)), cyan)
 	case game.Attract:
-		r.image(window, "assets/images/logo.png", view.x(80), view.y(245), view.size(560), view.size(175), 0)
-		r.centerText(window, "PRESS ENTER TO START", centerX, view.y(500), float32(math.Max(.9, view.scale)), lime)
-		r.centerText(window, "A / LEFT     D / RIGHT     SPACE / DOWN", centerX, view.y(550), float32(math.Max(.62, view.scale*.7)), draw.LightGray)
+		r.centerText(window, "PRESS ENTER TO CONNECT", centerX, view.y(711), float32(view.scale*.7), cyan)
+		r.centerText(window, "A / LEFT     D / RIGHT", centerX, view.y(741), float32(view.scale*.48), draw.LightGray)
 	case game.BallReady:
-		r.centerText(window, "HOLD SPACE / DOWN TO CHARGE", centerX, view.y(720), float32(math.Max(.72, view.scale*.78)), amber)
+		r.centerText(window, "HOLD SPACE / DOWN TO CHARGE", centerX, view.y(720), float32(view.scale*.62), amber)
 		barWidth := view.size(260)
 		barHeight := view.size(16)
 		strokeWidth := view.stroke(tableOutlineWidth)
@@ -321,6 +315,9 @@ func (r *renderer) image(window draw.Window, path string, x, y, width, height, r
 }
 
 func (r *renderer) centerText(window draw.Window, text string, centerX, y int, scale float32, color draw.Color) {
+	if drawCanvasText(text, centerX, y, scale, color, true) {
+		return
+	}
 	width, _ := window.GetScaledTextSize(text, scale)
 	window.DrawScaledText(text, centerX-width/2, y, scale, color)
 }
@@ -338,4 +335,14 @@ func truncate(value string, limit int) string {
 		return strings.Repeat(".", limit)
 	}
 	return string(runes[:limit-3]) + "..."
+}
+
+func (r *renderer) text(window draw.Window, text string, x, y int, scale float32, color draw.Color) {
+	if !drawCanvasText(text, x, y, scale, color, false) {
+		window.DrawScaledText(text, x, y, scale, color)
+	}
+}
+
+func (r *renderer) placedSprite(window draw.Window, path string, view viewport, p table.Placement) {
+	r.spriteCentered(window, path, view, p.Center, p.Width, p.Height, int(math.Round(p.Angle)))
 }

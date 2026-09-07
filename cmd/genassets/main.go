@@ -27,12 +27,10 @@ const (
 
 var (
 	ink       = color.NRGBA{R: 5, G: 8, B: 22, A: 255}
-	panel     = color.NRGBA{R: 10, G: 18, B: 43, A: 255}
 	cyan      = color.NRGBA{R: 32, G: 232, B: 255, A: 255}
 	cyanWhite = color.NRGBA{R: 207, G: 253, B: 255, A: 255}
 	magenta   = color.NRGBA{R: 255, G: 43, B: 173, A: 255}
 	violet    = color.NRGBA{R: 126, G: 71, B: 255, A: 255}
-	steel     = color.NRGBA{R: 111, G: 139, B: 174, A: 255}
 )
 
 type canvas struct {
@@ -206,79 +204,6 @@ func (r *rng) next() uint64 {
 
 func (r *rng) unit() float64 { return float64(r.next()>>11) / float64(uint64(1)<<53) }
 
-func backgroundImage() image.Image {
-	c := newCanvas(720, 1080)
-	c.verticalGradient(color.NRGBA{R: 3, G: 7, B: 21, A: 255}, color.NRGBA{R: 12, G: 8, B: 39, A: 255})
-
-	// Recessed playfield panels and a restrained technical grid.
-	c.roundedRect(25, 25, 695, 1055, 42, color.NRGBA{R: 10, G: 20, B: 47, A: 255}, 0.96)
-	c.roundedRect(37, 37, 683, 1043, 34, color.NRGBA{R: 3, G: 10, B: 29, A: 255}, 0.78)
-	for x := 48.0; x < 680; x += 48 {
-		c.line(x, 45, x, 1037, 1, cyan, 0.045)
-	}
-	for y := 55.0; y < 1030; y += 48 {
-		c.line(43, y, 677, y, 1, violet, 0.045)
-	}
-
-	// Hand-authored circuit routes, mirrored to frame the open table center.
-	routes := [][][2]float64{
-		{{58, 150}, {112, 150}, {138, 124}, {205, 124}},
-		{{58, 222}, {94, 222}, {123, 251}, {185, 251}, {211, 277}},
-		{{58, 340}, {112, 340}, {139, 313}, {190, 313}},
-		{{58, 486}, {99, 486}, {128, 515}, {198, 515}},
-		{{58, 624}, {115, 624}, {143, 596}, {208, 596}},
-		{{58, 760}, {89, 760}, {125, 796}, {196, 796}},
-		{{58, 908}, {112, 908}, {142, 878}, {210, 878}},
-	}
-	for i, route := range routes {
-		var col color.NRGBA
-		switch i % 3 {
-		case 0:
-			col = cyan
-		case 1:
-			col = magenta
-		case 2:
-			col = violet
-		}
-		drawRoute(c, route, col, 0.44)
-		mirror := make([][2]float64, len(route))
-		for j, p := range route {
-			mirror[j] = [2]float64{720 - p[0], p[1] + float64((i%2)*13-6)}
-		}
-		drawRoute(c, mirror, col, 0.38)
-	}
-
-	seed := rng(0x4e454f4e52454c59) // "NEONRELY"
-	for i := 0; i < 90; i++ {
-		x := 55 + seed.unit()*610
-		y := 55 + seed.unit()*970
-		r := 1.2 + seed.unit()*1.8
-		col := cyan
-		if i%4 == 0 {
-			col = magenta
-		}
-		c.circle(x, y, r*3.2, col, 0.04)
-		c.circle(x, y, r, col, 0.32)
-	}
-
-	// Central relay motif and launch-lane energy rails.
-	for i := 0; i < 5; i++ {
-		r := 78 + float64(i)*22
-		c.ring(360, 355, r+1.2, r-1.2, violet, 0.08+float64(i)*0.012)
-	}
-	c.glowLine(631, 150, 631, 928, 2, cyan, 0.48)
-	c.glowLine(656, 178, 656, 946, 1.4, magenta, 0.36)
-	for y := 190.0; y < 930; y += 72 {
-		c.line(620, y, 642, y, 2, cyanWhite, 0.42)
-	}
-
-	// Edge illumination and a subtle lower drain chevron.
-	c.ring(360, 540, 660, 654, cyan, 0.11)
-	c.line(268, 998, 360, 1040, 3, magenta, 0.20)
-	c.line(360, 1040, 452, 998, 3, magenta, 0.20)
-	return c.finish()
-}
-
 func drawRoute(c *canvas, route [][2]float64, col color.NRGBA, opacity float64) {
 	for i := 1; i < len(route); i++ {
 		c.glowLine(route[i-1][0], route[i-1][1], route[i][0], route[i][1], 1.5, col, opacity)
@@ -287,53 +212,6 @@ func drawRoute(c *canvas, route [][2]float64, col color.NRGBA, opacity float64) 
 		c.circle(p[0], p[1], 4.5, col, opacity*0.23)
 		c.ring(p[0], p[1], 2.6, 1.25, col, opacity)
 	}
-}
-
-var glyphs = map[rune][7]string{
-	'N': {"10001", "11001", "11001", "10101", "10011", "10011", "10001"},
-	'E': {"11111", "10000", "10000", "11110", "10000", "10000", "11111"},
-	'O': {"01110", "10001", "10001", "10001", "10001", "10001", "01110"},
-	'R': {"11110", "10001", "10001", "11110", "10100", "10010", "10001"},
-	'L': {"10000", "10000", "10000", "10000", "10000", "10000", "11111"},
-	'A': {"01110", "10001", "10001", "11111", "10001", "10001", "10001"},
-	'Y': {"10001", "10001", "01010", "00100", "00100", "00100", "00100"},
-}
-
-func bitmapText(c *canvas, text string, x, y, unit float64, col color.NRGBA) {
-	for _, ch := range text {
-		glyph := glyphs[ch]
-		for row, line := range glyph {
-			for column, pixel := range line {
-				if pixel != '1' {
-					continue
-				}
-				x0 := x + float64(column)*unit
-				y0 := y + float64(row)*unit
-				c.roundedRect(x0-unit*.12, y0-unit*.12, x0+unit*.82, y0+unit*.82, unit*.34, col, 0.055)
-				c.roundedRect(x0+unit*.08, y0+unit*.08, x0+unit*.62, y0+unit*.62, unit*.18, col, 0.18)
-				c.roundedRect(x0+unit*.24, y0+unit*.24, x0+unit*.46, y0+unit*.46, unit*.08, cyanWhite, 0.96)
-			}
-		}
-		x += 6 * unit
-	}
-}
-
-func logoImage() image.Image {
-	c := newCanvas(640, 200)
-	// Relay traces behind the wordmark.
-	c.glowLine(35, 37, 118, 37, 2.4, magenta, 0.6)
-	c.glowLine(522, 160, 605, 160, 2.4, cyan, 0.6)
-	c.line(35, 37, 35, 75, 2.4, magenta, 0.65)
-	c.line(605, 124, 605, 160, 2.4, cyan, 0.65)
-	c.ring(35, 80, 6, 3, magenta, 0.8)
-	c.ring(605, 119, 6, 3, cyan, 0.8)
-	bitmapText(c, "NEON", 113, 18, 18, cyan)
-	bitmapText(c, "RELAY", 140, 112, 12, magenta)
-	c.glowLine(218, 99, 422, 99, 2, violet, 0.6)
-	for _, x := range []float64{218, 320, 422} {
-		c.circle(x, 99, 4.5, violet, 0.7)
-	}
-	return c.finish()
 }
 
 func faviconImage() image.Image {
@@ -347,99 +225,6 @@ func faviconImage() image.Image {
 	c.glowLine(46, 46, 46, 18, 4, cyan, 0.9)
 	c.circle(18, 18, 3, cyanWhite, 0.95)
 	c.circle(46, 46, 3, cyanWhite, 0.95)
-	return c.finish()
-}
-
-func ballImage() image.Image {
-	c := newCanvas(64, 64)
-	c.circle(32, 34, 28, cyan, 0.05)
-	c.circleGradient(32, 31, 25.5, func(t float64) (color.NRGBA, float64) {
-		if t < .63 {
-			return mix(color.NRGBA{R: 240, G: 255, B: 255, A: 255}, steel, t/.63), 1
-		}
-		return mix(steel, color.NRGBA{R: 22, G: 39, B: 67, A: 255}, (t-.63)/.37), 1
-	})
-	c.circle(23, 21, 7.5, color.NRGBA{R: 255, G: 255, B: 255, A: 255}, 0.72)
-	c.circle(20, 18, 2.8, color.NRGBA{R: 255, G: 255, B: 255, A: 255}, 0.95)
-	c.ring(32, 31, 25.7, 24.6, cyanWhite, 0.4)
-	return c.finish()
-}
-
-func flipperImage() image.Image {
-	c := newCanvas(180, 64)
-	c.line(30, 32, 148, 32, 42, magenta, 0.07)
-	c.line(30, 32, 148, 32, 34, color.NRGBA{R: 36, G: 14, B: 61, A: 255}, 1)
-	c.line(30, 32, 148, 32, 28, magenta, 0.92)
-	c.line(30, 32, 148, 32, 18, color.NRGBA{R: 255, G: 113, B: 211, A: 255}, 0.9)
-	c.line(32, 26, 148, 26, 4, color.NRGBA{R: 255, G: 229, B: 249, A: 255}, 0.55)
-	c.circle(30, 32, 19, panel, 1)
-	c.ring(30, 32, 18, 13, cyan, 0.9)
-	c.circle(30, 32, 8, cyanWhite, 0.9)
-	return c.finish()
-}
-
-func bumperImage() image.Image {
-	c := newCanvas(128, 128)
-	c.circleGradient(64, 66, 57, func(t float64) (color.NRGBA, float64) { return violet, .10 * (1 - t) })
-	c.circle(64, 64, 48, color.NRGBA{R: 14, G: 21, B: 50, A: 255}, 1)
-	c.ring(64, 64, 48, 42, magenta, 0.92)
-	c.circleGradient(64, 64, 38, func(t float64) (color.NRGBA, float64) {
-		return mix(color.NRGBA{R: 64, G: 39, B: 109, A: 255}, color.NRGBA{R: 14, G: 12, B: 39, A: 255}, t), 1
-	})
-	c.ring(64, 64, 31, 27, cyan, 0.88)
-	c.circle(64, 64, 18, magenta, 0.18)
-	c.polygon([][2]float64{{64, 43}, {70, 57}, {84, 64}, {70, 71}, {64, 85}, {58, 71}, {44, 64}, {58, 57}}, cyanWhite, 0.9)
-	c.circle(52, 47, 6, color.NRGBA{R: 255, G: 255, B: 255, A: 255}, 0.35)
-	return c.finish()
-}
-
-func postImage() image.Image {
-	c := newCanvas(48, 48)
-	c.circle(24, 25, 21, cyan, 0.08)
-	c.circleGradient(24, 24, 17, func(t float64) (color.NRGBA, float64) {
-		return mix(cyanWhite, color.NRGBA{R: 32, G: 81, B: 113, A: 255}, t), 1
-	})
-	c.ring(24, 24, 17.5, 14.5, cyan, 0.92)
-	c.circle(20, 19, 4, color.NRGBA{R: 255, G: 255, B: 255, A: 255}, 0.55)
-	return c.finish()
-}
-
-func targetImage() image.Image {
-	c := newCanvas(64, 96)
-	c.roundedRect(8, 5, 56, 91, 8, magenta, 0.12)
-	c.roundedRect(11, 7, 53, 89, 7, color.NRGBA{R: 30, G: 17, B: 55, A: 255}, 1)
-	c.roundedRect(14, 10, 50, 86, 5, magenta, 0.88)
-	c.roundedRect(19, 15, 45, 81, 3, color.NRGBA{R: 73, G: 18, B: 72, A: 255}, 1)
-	c.polygon([][2]float64{{32, 25}, {39, 40}, {47, 48}, {39, 56}, {32, 71}, {25, 56}, {17, 48}, {25, 40}}, cyanWhite, 0.92)
-	c.line(19, 18, 45, 18, 2, color.NRGBA{R: 255, G: 228, B: 247, A: 255}, 0.6)
-	return c.finish()
-}
-
-func laneLightImage() image.Image {
-	c := newCanvas(48, 96)
-	c.line(24, 17, 24, 78, 14, cyan, 0.055)
-	c.roundedRect(16, 8, 32, 88, 8, color.NRGBA{R: 8, G: 29, B: 47, A: 255}, 0.9)
-	c.roundedRect(19, 11, 29, 85, 5, cyan, 0.48)
-	for _, y := range []float64{22, 40, 58, 76} {
-		c.circle(24, y, 8, cyan, 0.12)
-		c.polygon([][2]float64{{24, y - 5}, {29, y + 2}, {26, y + 2}, {26, y + 6}, {22, y + 6}, {22, y + 2}, {19, y + 2}}, cyanWhite, 0.9)
-	}
-	return c.finish()
-}
-
-func plungerImage() image.Image {
-	c := newCanvas(56, 180)
-	c.roundedRect(12, 9, 44, 170, 14, cyan, 0.06)
-	c.roundedRect(18, 8, 38, 132, 9, color.NRGBA{R: 18, G: 34, B: 60, A: 255}, 1)
-	c.roundedRect(21, 11, 35, 130, 6, steel, 0.9)
-	c.line(22, 27, 34, 27, 3, cyanWhite, 0.62)
-	c.line(22, 44, 34, 44, 3, cyanWhite, 0.52)
-	c.line(22, 61, 34, 61, 3, cyanWhite, 0.44)
-	c.line(22, 78, 34, 78, 3, cyanWhite, 0.36)
-	c.line(28, 128, 28, 151, 8, magenta, 0.88)
-	c.roundedRect(8, 145, 48, 175, 12, color.NRGBA{R: 52, G: 17, B: 66, A: 255}, 1)
-	c.roundedRect(11, 148, 45, 172, 10, magenta, 0.9)
-	c.line(16, 153, 40, 153, 3, color.NRGBA{R: 255, G: 220, B: 245, A: 255}, 0.55)
 	return c.finish()
 }
 
@@ -637,6 +422,9 @@ func generatedAssets() ([]generatedFile, error) {
 		make func() image.Image
 	}{
 		{"images/background.png", backgroundImage},
+		{"images/table-shadows.png", tableShadowImage},
+		{"images/table-hardware.png", tableHardwareImage},
+		{"images/table-foreground.png", tableForegroundImage},
 		{"images/logo.png", logoImage},
 		{"images/favicon.png", faviconImage},
 		{"images/ball.png", ballImage},
@@ -644,7 +432,9 @@ func generatedAssets() ([]generatedFile, error) {
 		{"images/bumper.png", bumperImage},
 		{"images/post.png", postImage},
 		{"images/target.png", targetImage},
+		{"images/target-down.png", targetDownImage},
 		{"images/lane-light.png", laneLightImage},
+		{"images/lane-light-off.png", laneLightOffImage},
 		{"images/plunger.png", plungerImage},
 		{"images/glow.png", glowImage},
 		{"images/particle.png", particleImage},

@@ -88,18 +88,15 @@ type canvasTableWindow struct{ draw.Window }
 
 func (canvasTableWindow) DrawImageFileTo(string, int, int, int, int, int) error { return nil }
 
-func TestCanvasTableStrokesHaveConstantCallCount(t *testing.T) {
+func TestCanvasTableUsesBakedHardwareAtEveryScale(t *testing.T) {
 	current := game.New(table.New(), nil)
 	for _, scale := range []int{1, 2, 3} {
 		ctx := recordCanvasStrokes(t)
 		view := newViewport(720*scale, 1080*scale)
 		new(renderer).drawTable(canvasTableWindow{}, current, view)
-		// 27 wall/slingshot lines and 3 rollover ellipses, regardless of DPR.
-		if got := ctx.Get("strokes").Length(); got != 30 {
-			t.Fatalf("scale %d: %d strokes, want 30", scale, got)
-		}
-		if got := ctx.Get("calls").Length(); got != 27*6+3*5 {
-			t.Fatalf("scale %d: %d Canvas calls, want 177", scale, got)
+		// Static hardware is baked into the background; dynamic parts use sprites.
+		if got := ctx.Get("calls").Length(); got != 0 {
+			t.Fatalf("scale %d: %d Canvas path calls, want none", scale, got)
 		}
 	}
 }

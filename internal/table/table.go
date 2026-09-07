@@ -3,6 +3,7 @@
 package table
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/CWBudde/go-pinball-2d/internal/physics"
@@ -211,42 +212,42 @@ func New() *Definition {
 			line("wall_shooter_bottom", 625, 1045, 685, 1045, 5),
 		},
 		GuideWalls: []physics.LineCollider{
-			line("guide_left_outlane", 90, 730, 150, 915, 4),
-			line("guide_left_inlane", 150, 765, 220, 900, 4),
-			line("guide_left_flipper", 220, 900, 245, 925, 4),
-			line("guide_right_outlane", 570, 730, 510, 915, 4),
-			line("guide_right_inlane", 570, 765, 500, 900, 4),
-			line("guide_right_flipper", 500, 900, 475, 925, 4),
+			line("guide_left_outlane", 90, 730, 120, 810, 4),
+			line("guide_left_inlane", 195, 823, 208, 882, 4),
+			line("guide_left_flipper", 208, 882, 220, 901, 4),
+			line("guide_right_outlane", 584, 730, 580, 810, 4),
+			line("guide_right_inlane", 525, 823, 512, 882, 4),
+			line("guide_right_flipper", 512, 882, 500, 901, 4),
 		},
 		Bumpers: []Bumper{
-			{ID: "bumper_left", Center: physics.V(245, 300), Radius: 45, Score: BumperScore},
-			{ID: "bumper_right", Center: physics.V(475, 300), Radius: 45, Score: BumperScore},
-			{ID: "bumper_center", Center: physics.V(360, 455), Radius: 48, Score: BumperScore},
+			{ID: "bumper_left", Center: physics.V(238, 320), Radius: 54, Score: BumperScore},
+			{ID: "bumper_right", Center: physics.V(476, 320), Radius: 54, Score: BumperScore},
+			{ID: "bumper_center", Center: physics.V(344, 627), Radius: 54, Score: BumperScore},
 		},
 		Slingshots: []Slingshot{
 			{
 				ID: "slingshot_left", Score: SlingshotScore, Radius: 9,
-				Triangle: [3]physics.Vec{physics.V(145, 710), physics.V(285, 805), physics.V(175, 845)},
+				Triangle: [3]physics.Vec{physics.V(185, 688), physics.V(267, 852), physics.V(195, 823)},
 			},
 			{
 				ID: "slingshot_right", Score: SlingshotScore, Radius: 9,
-				Triangle: [3]physics.Vec{physics.V(575, 710), physics.V(435, 805), physics.V(545, 845)},
+				Triangle: [3]physics.Vec{physics.V(535, 688), physics.V(525, 823), physics.V(453, 852)},
 			},
 		},
 		RolloverLanes: []Lane{
-			{ID: "rollover_left", Segment: physics.Segment{A: physics.V(190, 155), B: physics.V(245, 155)}, Radius: 7, Score: RolloverScore},
-			{ID: "rollover_center", Segment: physics.Segment{A: physics.V(333, 125), B: physics.V(387, 125)}, Radius: 7, Score: RolloverScore},
-			{ID: "rollover_right", Segment: physics.Segment{A: physics.V(475, 155), B: physics.V(530, 155)}, Radius: 7, Score: RolloverScore},
+			{ID: "rollover_left", Segment: physics.Segment{A: physics.V(211, 185), B: physics.V(267, 185)}, Radius: 7, Score: RolloverScore},
+			{ID: "rollover_center", Segment: physics.Segment{A: physics.V(331, 185), B: physics.V(387, 185)}, Radius: 7, Score: RolloverScore},
+			{ID: "rollover_right", Segment: physics.Segment{A: physics.V(451, 185), B: physics.V(507, 185)}, Radius: 7, Score: RolloverScore},
 		},
 		DropTargets: []DropTarget{
-			{ID: "target_relay_1", Segment: physics.Segment{A: physics.V(505, 430), B: physics.V(535, 445)}, Radius: 7, Score: DropTargetScore},
-			{ID: "target_relay_2", Segment: physics.Segment{A: physics.V(490, 475), B: physics.V(520, 490)}, Radius: 7, Score: DropTargetScore},
-			{ID: "target_relay_3", Segment: physics.Segment{A: physics.V(475, 520), B: physics.V(505, 535)}, Radius: 7, Score: DropTargetScore},
-			{ID: "target_relay_4", Segment: physics.Segment{A: physics.V(460, 565), B: physics.V(490, 580)}, Radius: 7, Score: DropTargetScore},
+			{ID: "target_relay_1", Segment: physics.Segment{A: physics.V(514, 414), B: physics.V(554, 434)}, Radius: 12, Score: DropTargetScore},
+			{ID: "target_relay_2", Segment: physics.Segment{A: physics.V(501, 476), B: physics.V(541, 496)}, Radius: 12, Score: DropTargetScore},
+			{ID: "target_relay_3", Segment: physics.Segment{A: physics.V(488, 538), B: physics.V(528, 558)}, Radius: 12, Score: DropTargetScore},
+			{ID: "target_relay_4", Segment: physics.Segment{A: physics.V(475, 600), B: physics.V(515, 620)}, Radius: 12, Score: DropTargetScore},
 		},
 		Inlanes: []Lane{
-			{ID: "inlane_left", Segment: physics.Segment{A: physics.V(175, 820), B: physics.V(220, 890)}, Radius: 12},
-			{ID: "inlane_right", Segment: physics.Segment{A: physics.V(545, 820), B: physics.V(500, 890)}, Radius: 12},
+			{ID: "inlane_left", Segment: physics.Segment{A: physics.V(155, 805), B: physics.V(195, 890)}, Radius: 12},
+			{ID: "inlane_right", Segment: physics.Segment{A: physics.V(558, 805), B: physics.V(525, 890)}, Radius: 12},
 		},
 		Outlanes: []Lane{
 			{ID: "outlane_left", Segment: physics.Segment{A: physics.V(70, 825), B: physics.V(135, 955)}, Radius: 12},
@@ -255,10 +256,10 @@ func New() *Definition {
 		Posts: []Post{
 			{ID: "post_left_upper", Center: physics.V(105, 650), Radius: 13},
 			{ID: "post_right_upper", Center: physics.V(585, 650), Radius: 13},
-			{ID: "post_left_sling", Center: physics.V(155, 705), Radius: 14},
-			{ID: "post_right_sling", Center: physics.V(565, 705), Radius: 14},
-			{ID: "post_left_inlane", Center: physics.V(285, 815), Radius: 12},
-			{ID: "post_right_inlane", Center: physics.V(435, 815), Radius: 12},
+			{ID: "post_left_sling", Center: physics.V(185, 688), Radius: 14},
+			{ID: "post_right_sling", Center: physics.V(535, 688), Radius: 14},
+			{ID: "post_left_inlane", Center: physics.V(267, 852), Radius: 12},
+			{ID: "post_right_inlane", Center: physics.V(453, 852), Radius: 12},
 			{ID: "post_left_flipper", Center: physics.V(200, 900), Radius: 11},
 			{ID: "post_right_flipper", Center: physics.V(520, 900), Radius: 11},
 		},
@@ -269,6 +270,22 @@ func New() *Definition {
 		},
 		Flippers: []*physics.Flipper{leftFlipper, rightFlipper},
 	}
+
+	// Upper guide shoulders frame three open-bottom rollover channels. Keep the
+	// launch orbit above them clear; their top sits 77 units below the outer roof.
+	for side, points := range [][]physics.Vec{
+		quadratic(physics.V(136, 259), physics.V(98, 132), physics.V(210, 132), 12),
+		quadratic(physics.V(572, 259), physics.V(600, 132), physics.V(508, 132), 12),
+	} {
+		for i := 1; i < len(points); i++ {
+			a, b := points[i-1], points[i]
+			d.GuideWalls = append(d.GuideWalls, line(fmt.Sprintf("guide_arch_%d_%02d", side, i), a.X, a.Y, b.X, b.Y, 7))
+		}
+	}
+	for i, x := range []float64{188, 300, 420, 532} {
+		d.GuideWalls = append(d.GuideWalls, line(fmt.Sprintf("guide_rollover_%d", i), x, 143, x, 218, 7))
+	}
+
 	d.Features = d.featureCatalog()
 	return d
 }
@@ -395,4 +412,14 @@ func (d *Definition) World() physics.World {
 		Gravity: physics.V(0, 760), Lines: d.LineColliders(), Circles: d.CircleColliders(),
 		Flippers: d.Flippers, MaxIterations: 10, SafePosition: d.BallSpawn,
 	}
+}
+
+// quadratic samples one authored guide curve for both collision and rendering.
+func quadratic(a, control, b physics.Vec, steps int) []physics.Vec {
+	points := make([]physics.Vec, steps+1)
+	for i := range points {
+		t := float64(i) / float64(steps)
+		points[i] = a.Mul((1 - t) * (1 - t)).Add(control.Mul(2 * (1 - t) * t)).Add(b.Mul(t * t))
+	}
+	return points
 }

@@ -13,3 +13,7 @@ github.com/gonutz/prototype v1.9.2/go.mod h1:PZmucOvWPEqtkrFuouz6tD74SJwmQ+XXe4f
 github.com/gonutz/w32/v2 v2.0.1/go.mod h1:MgtHx0AScDVNKyB+kjyPder4xIi3XAcHS6LDDU2DmdE=
 github.com/gonutz/w32/v2 v2.2.0 h1:XVC/Kd238O+gadaDEB+E6E+kn/UBhj2UNOS8v9QPc4Q=
 github.com/gonutz/w32/v2 v2.2.0/go.mod h1:MgtHx0AScDVNKyB+kjyPder4xIi3XAcHS6LDDU2DmdE=
+golang.org/x/image v0.42.0 h1:1gSs6ehNWXLbkHBIPcWztk3D/6aIA/8hauiAYtlodVY=
+golang.org/x/image v0.42.0/go.mod h1:rrpelvGFt+kLPAjPM4HeWPgrl0FtafueU//e5N0qk/Q=
+golang.org/x/text v0.38.0 h1:sXmwo9DwP3OK9EZ7PqAdaooSGozfl/3a6/xJcbzPRhE=
+golang.org/x/text v0.38.0/go.mod h1:YXZt3QhHUKYT53r2lLKFIVi6Ao1jdzrTR/KQ09qyxF4=

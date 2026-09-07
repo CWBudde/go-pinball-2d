@@ -49,3 +49,20 @@ just check        # run the complete CI quality gate
 
 All artwork and sound effects are generated specifically for this project. See
 [`assets/README.md`](assets/README.md) for provenance and regeneration details.
+
+## Render engine screenshots
+
+Run `just render-preview` to write PNGs for attract, launch-ready, playing,
+raised flippers, and pause states into `output/preview/`. This advances the real
+simulation and calls the production renderer through a software drawing
+surface. It uses Node.js and Go's WebAssembly runtime; it does not open a
+browser or require OpenGL, SDL, or a display server.
+
+For another output size:
+
+```sh
+./scripts/render-preview.sh -width 360 -height 540 -out output/preview-small
+```
+
+The capture surface uses Go Mono for text and software image filtering, so
+font rasterization and antialiasing may differ slightly from the display backend.

@@ -256,7 +256,7 @@ func TestWeakLaunchCanBeRechargedAndRelaunched(t *testing.T) {
 	exitedShooterLane := false
 	for range 60 * 5 {
 		g.Update(1.0/60.0, Input{})
-		if g.Ball.Position.Y < 300 {
+		if g.Ball.Position.X < 600 && g.Ball.Position.Y < 300 {
 			exitedShooterLane = true
 		}
 	}
@@ -441,7 +441,7 @@ func TestScriptedSimulationStaysFinite(t *testing.T) {
 	for frame := range 60 * 20 {
 		input := Input{LeftFlipper: frame%47 < 5, RightFlipper: frame%61 < 7}
 		g.Update(1.0/60.0, input)
-		if g.Ball.Position.Y < 300 {
+		if g.Ball.Position.X < 600 && g.Ball.Position.Y < 300 {
 			exitedShooterLane = true
 		}
 		if !g.Ball.Position.IsFinite() || !g.Ball.Velocity.IsFinite() {
@@ -479,7 +479,7 @@ func TestScriptedSimulationIsConsistentAcrossRefreshRates(t *testing.T) {
 		exitedShooterLane := false
 		for range refreshRate * 5 {
 			g.Update(1/float64(refreshRate), Input{})
-			if g.Ball.Position.Y < 300 {
+			if g.Ball.Position.X < 600 && g.Ball.Position.Y < 300 {
 				exitedShooterLane = true
 			}
 		}
