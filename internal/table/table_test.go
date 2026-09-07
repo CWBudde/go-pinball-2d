@@ -161,13 +161,15 @@ func TestGoldenBallTrajectory(t *testing.T) {
 	world := definition.World()
 	ball := physics.NewBall(definition.BallSpawn, BallRadius)
 	ball.Velocity = physics.V(0, -1750)
+	// The new upper guides redirect the launch orbit before it reaches the
+	// target bank. Pin both the orbit and the subsequent main-playfield travel.
 	want := map[int]physics.Vec{
 		60:  physics.V(655, 571.645833333334),
 		120: physics.V(655, 205.791666666669),
 		240: physics.V(370.539814501204, 107.722554539464),
 		360: physics.V(486.252606622681, 77.521200147571),
-		600: physics.V(0, 0),
-		960: physics.V(0, 0),
+		600: physics.V(462.409128631806, 517.527922390269),
+		960: physics.V(437.315758264932, 567.120295314501),
 	}
 	for step := 1; step <= 960; step++ {
 		definition.Flippers[0].SetEngaged(step%97 < 12)

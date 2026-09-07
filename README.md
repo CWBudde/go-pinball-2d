@@ -53,7 +53,7 @@ All artwork and sound effects are generated specifically for this project. See
 ## Render engine screenshots
 
 Run `just render-preview` to write PNGs for attract, launch-ready, playing,
-raised flippers, and pause states into `output/preview/`. This advances the real
+raised flippers, pause, and a scoring rally into `output/preview/`. This advances the real
 simulation and calls the production renderer through a software drawing
 surface. It uses Node.js and Go's WebAssembly runtime; it does not open a
 browser or require OpenGL, SDL, or a display server.
@@ -66,3 +66,15 @@ For another output size:
 
 The capture surface uses Go Mono for text and software image filtering, so
 font rasterization and antialiasing may differ slightly from the display backend.
+
+To inspect table geometry during layout work, use engine capture modes:
+
+```sh
+./scripts/render-preview.sh -colliders -out output/preview-colliders
+./scripts/render-preview.sh -blockout -out output/preview-blockout
+```
+
+The overlay shows solid collision surfaces in cyan, sensors in amber, flippers
+in magenta, and the ball in white. The blockout uses flat geometry to check
+composition without textures. Sprite bounds and anchors live in
+`internal/table/artwork.go`; static guide paths come from `internal/table/table.go`.

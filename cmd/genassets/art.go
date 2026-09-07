@@ -100,7 +100,6 @@ func (c *canvas) rails(walls []physics.LineCollider) {
 		dx, dy, extra, opacity float64
 		col                    color.NRGBA
 	}{
-		{2, 5, 9, .6, black},
 		{0, 0, 5, 1, black},
 		{0, 0, 0, 1, metal},
 		{-1, -1, -3, .9, silver},
@@ -118,7 +117,6 @@ func (c *canvas) rails(walls []physics.LineCollider) {
 }
 
 func (c *canvas) plastic(p [][2]float64) {
-	shadow := make([][2]float64, len(p))
 	inner := make([][2]float64, len(p))
 	var cx, cy float64
 	for _, v := range p {
@@ -126,11 +124,8 @@ func (c *canvas) plastic(p [][2]float64) {
 		cy += v[1] / float64(len(p))
 	}
 	for i, v := range p {
-		shadow[i] = [2]float64{v[0] + 2, v[1] + 8}
 		inner[i] = [2]float64{cx + (v[0]-cx)*.81, cy + (v[1]-cy)*.81}
 	}
-	c.polygon(shadow, black, .8)
-	c.outline(shadow, 17, black, .45)
 	c.polygon(p, graphite, 1)
 	c.outline(p, 17, black, 1)
 	c.outline(p, 11, pink, .65)

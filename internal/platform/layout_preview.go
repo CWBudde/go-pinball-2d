@@ -17,10 +17,10 @@ func RenderLayoutFrame(window draw.Window, current *game.Game) {
 	view := newViewport(width, height)
 	window.FillRect(0, 0, width, height, draw.RGB(.07, .08, .09))
 	solid := draw.RGB(.4, .43, .45)
-	for _, line := range current.Table.LineColliders() {
+	for _, line := range current.World.Lines {
 		r.thickLine(window, view, line.Segment, solid, int(math.Round(line.Radius*2)))
 	}
-	for _, circle := range current.Table.CircleColliders() {
+	for _, circle := range current.World.Circles {
 		x, y := view.point(circle.Center)
 		radius := view.size(circle.Radius)
 		window.FillEllipse(x-radius, y-radius, radius*2, radius*2, solid)
@@ -36,7 +36,7 @@ func RenderLayoutFrame(window draw.Window, current *game.Game) {
 	for _, f := range current.World.Flippers {
 		r.thickLine(window, view, physics.Segment{A: f.Pivot, B: f.Tip()}, draw.LightGray, int(f.Radius*2))
 	}
-	r.centerText(window, "NEON RELAY", view.x(table.TitleOrigin.X+110), view.y(table.TitleOrigin.Y+35), float32(view.scale), draw.LightGray)
+	r.centerText(window, "NEON RELAY", view.x(table.TitleOrigin.X+88), view.y(table.TitleOrigin.Y+35), float32(view.scale), draw.LightGray)
 	RenderCollisionOverlay(window, current)
 }
 

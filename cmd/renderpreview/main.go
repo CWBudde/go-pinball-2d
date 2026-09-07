@@ -106,5 +106,9 @@ func run(out string, width, height int, colliders, blockout bool) error {
 	if current.State != game.Playing {
 		return fmt.Errorf("pause did not resume gameplay")
 	}
-	return nil
+	step(180, game.Input{})
+	if current.Score == 0 {
+		return fmt.Errorf("launch did not reach scoring features")
+	}
+	return capture("rally", game.Playing)
 }

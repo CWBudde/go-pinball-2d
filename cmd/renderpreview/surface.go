@@ -82,6 +82,22 @@ func (s *surface) DrawEllipse(x, y, width, height int, col draw.Color) {
 	}
 }
 
+func (s *surface) FillEllipse(x, y, width, height int, col draw.Color) {
+	if width <= 0 || height <= 0 {
+		return
+	}
+	rx, ry := float64(width)/2, float64(height)/2
+	cx, cy := float64(x)+rx, float64(y)+ry
+	for row := max(y, s.pixels.Bounds().Min.Y); row < min(y+height, s.pixels.Bounds().Max.Y); row++ {
+		t := (float64(row) + .5 - cy) / ry
+		extent := rx * math.Sqrt(max(0, 1-t*t))
+		left, right := int(math.Ceil(cx-extent-.5)), int(math.Floor(cx+extent-.5))
+		if right >= left {
+			s.FillRect(left, row, right-left+1, 1, col)
+		}
+	}
+}
+
 func (s *surface) load(path string) (image.Image, error) {
 	if img, ok := s.images[path]; ok {
 		return img, nil

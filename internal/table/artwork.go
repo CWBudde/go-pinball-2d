@@ -15,7 +15,7 @@ type SpriteFrame struct {
 	ContactRadius float64
 	// ContactLength is the full source-pixel length of a target housing.
 	ContactLength float64
-	// Tip identifies the flipper's source-pixel tip, measured from Anchor.
+	// Tip identifies the flipper's tip in source-pixel coordinates.
 	Tip physics.Vec
 }
 
@@ -26,6 +26,7 @@ type Placement struct {
 }
 
 // Place keeps the authored anchor on the physical mechanism during rotation.
+// Angle is supplied in radians; the returned draw angle is in degrees.
 func (s SpriteFrame) Place(anchor physics.Vec, scale, angle float64) Placement {
 	offset := physics.V(s.Width/2, s.Height/2).Sub(s.Anchor).Mul(scale)
 	sin, cos := math.Sincos(angle)

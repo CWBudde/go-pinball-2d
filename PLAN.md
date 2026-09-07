@@ -40,21 +40,36 @@ and lighting. Adding more circuit lines alone will not close this gap.
 
 ## Phase 1 — establish the new layout and render structure
 
-- [ ] Block out a stronger upper arch with three defined rollover channels;
+- [x] Block out a stronger upper arch with three defined rollover channels;
   place the title between the upper bumper pair and a lower central bumper.
   Enlarge target housings and give the lower slingshots, return lanes, and drain
   apron the proportions of assembled pinball hardware.
-- [ ] Keep the existing feature set and logical resolution initially. Change
+- [x] Keep the existing feature set and logical resolution initially. Change
   `internal/table` geometry where needed, checking launch clearance, shot paths,
   flipper reach, and drain access rather than copying impossible concept geometry.
-- [ ] Define shared component bounds, sprite pivots, and draw order: playfield,
+- [x] Define shared component bounds, sprite pivots, and draw order: playfield,
   shadows, mechanisms, moving parts, foreground covers, emission, and HUD.
   Visible contact edges must follow colliders; decorative overhangs need explicit
   clearance and occlusion rules.
-- [ ] Save a baseline and matching engine captures for comparison with the concept.
+- [x] Save a baseline and matching engine captures for comparison with the concept.
 
 **Exit:** the untextured table already has the reference's visual hierarchy;
 collision overlays and scripted launches confirm that the new layout is playable.
+
+**Completed:** curved upper guides and three physical channels; larger bumpers
+and target housings; title above the lower bumper; taller slingshots and revised
+return guides. Shared sprite anchors and separate shadow/hardware/foreground
+layers are in place. Swept-flipper clearance also caught and removed a pre-existing
+right guide overlap.
+
+**Evidence:** engine captures in `output/preview-phase1-before/` (baseline),
+`output/preview-phase1/`, `output/preview-phase1-colliders/`, and
+`output/preview-phase1-blockout/`; half-size captures in `output/preview-phase1-small/`.
+These are local, ignored outputs. Reproduce with `just render-preview` or the
+`-colliders` / `-blockout` options documented in README. Rollover passage, full and
+weak launches, flipper clearance/anchors, drain routing, and reviewed trajectory
+checks pass. The scripted rally scores and drops targets. Material depth remains
+Phase 2 work.
 
 ## Phase 2 — prove the material treatment on one assembly
 

@@ -20,7 +20,7 @@ are current without changing them, run:
 go run ./cmd/genassets -check
 ```
 
-`go test ./cmd/genassets` performs the same byte-for-byte freshness check and
+`go test ./cmd/genassets` compares decoded image pixels and exact audio bytes and
 also validates all PNG dimensions and canonical WAV headers. Images are drawn
 at 3× their final size and box-filtered for deterministic antialiasing. Noise in
 the synthesized effects comes from fixed xorshift seeds.
@@ -53,7 +53,10 @@ than the opaque background are transparent.
 
 | File | Dimensions | Purpose |
 | --- | ---: | --- |
-| `images/background.png` | 720×1080 | graphite circuit playfield with baked hardware |
+| `images/background.png` | 720×1080 | flat graphite circuit playfield and printed title |
+| `images/table-shadows.png` | 720×1080 | transparent static contact shadows |
+| `images/table-hardware.png` | 720×1080 | rails, routing plate, slingshot covers, and apron panels |
+| `images/table-foreground.png` | 720×1080 | cabinet perimeter, display housings, and drain lip |
 | `images/logo.png` | 640×200 | Neon Relay circuit wordmark |
 | `images/favicon.png` | 64×64 | compact relay-mark icon |
 | `images/ball.png` | 64×64 | shaded steel pinball |
@@ -70,13 +73,29 @@ than the opaque background are transparent.
 
 ## Rendering approach
 
-`cmd/genassets/art.go` draws the electronics-themed artwork. The background
-bakes layered rail highlights, contact shadows, fasteners, and slingshot
-plastics directly from `internal/table.New()` so the visible hardware follows
-the collision geometry. Regenerate assets after changing the table definition.
-Moving mechanisms and the steel ball remain transparent sprites; lane and
-target state select illuminated or recessed variants at runtime. The browser
-uses a system monospace font for live score displays and instrument labels.
+`cmd/genassets/art.go` and `cmd/genassets/layout.go` draw the electronics-themed
+artwork. Runtime composition follows this order:
+
+1. Flat playfield artwork and printed circuitry/title.
+2. Static contact shadows.
+3. Static hardware, followed by lane inserts, bumpers, posts, and targets.
+4. Moving flippers, plunger, and ball.
+5. Foreground cabinet/display housings and the lip below the drain sensor.
+6. Emission/effects and the instrument HUD.
+
+Rails and slingshots use the same geometry as `internal/table.New()`. Upper guide
+curves are tessellated once in the table definition for both drawing and physics.
+Regenerate assets after changing the table definition. Shared source bounds and
+anchors in `internal/table/artwork.go` keep sprites aligned with physical centers
+and flipper pivots/tips during rotation.
+
+Printed routing plates have no height. Apron panels occupy sealed regions outside
+the lower walls, and foreground covers stay outside live ball travel. Sprite
+padding and shadows are decorative; opaque contact edges fit the physical shapes.
+Future raised covers must explicitly define ball clearance and draw order.
+Lane and target states select illuminated or recessed variants at runtime.
+The browser uses a system monospace font for live displays; software captures
+currently use Go Mono, so text rasterization can differ.
 
 The visual direction follows the Neon Relay concept developed during design;
 no generated concept bitmap is embedded in the game. All shipped pixels remain
@@ -102,6 +121,6 @@ sample by sample by `cmd/genassets`.
 
 The design, drawing instructions, letter paths, procedural layout, and audio
 synthesis recipes were authored for Neon Relay in `cmd/genassets/main.go` and
-`cmd/genassets/art.go`. The committed binaries are direct outputs of that source and carry the same project
+`cmd/genassets/art.go`, `cmd/genassets/layout.go`, and the shared table definition. The committed binaries are direct outputs of that source and carry the same project
 license as the rest of this repository. Because generation consumes no external
 inputs, the source plus its fixed constants are the complete provenance trail.
