@@ -31,7 +31,7 @@ infrastructure does not mean the visual target has been reached.
 | Composition | New upper arch, framed lanes, and title above the lower bumper | Built-up upper arch; title between upper pair and lower bumper |
 | Construction | Fitted guides and slings, paired return/drain lanes, cabinet lip, and apron | Curved metal guides, raised assemblies, substantial cabinet and apron |
 | Materials | Shared chrome/rubber/glass treatment across mechanisms; highlights are baked | Beveled chrome, dark rubber, smoked plastic, textured graphite |
-| Light | Baked contact shadows and local reflections throughout; transient response still pending | Selective LED bloom, reflected color, contact shadows and dark recesses |
+| Light | Contact shadows, local reflected light, and timed hardware responses | Selective LED bloom, reflected color, contact shadows and dark recesses |
 | Detail | Fitted target sockets, routing pads, fasteners, panel seams, and grain | Routed circuitry around fitted housings, brackets, fasteners and inserts |
 | Presentation | Plain score panels and overlay text | Integrated instrument displays and a consistent technical type system |
 
@@ -164,20 +164,36 @@ asset freshness, lint, and distribution verification cover the correction.
 
 ## Phase 4 — integrate light and mechanical response
 
-- [ ] Use narrow bright LED cores, soft local bloom, and tinted reflections on
+- [x] Use narrow bright LED cores, soft local bloom, and tinted reflections on
   nearby metal. Keep graphite dark and reserve strong emission for useful signals.
-- [ ] Add separate idle, lit, and hit appearances: bumper compression/flash,
+- [x] Add separate idle, lit, and hit appearances: bumper compression/flash,
   slingshot kick, target drop/reset, lane activation, and plunger travel.
-- [ ] Add a grounded ball shadow and chrome reflections; maintain ball visibility
+- [x] Add a grounded ball shadow and chrome reflections; maintain ball visibility
   over both dark panels and illuminated mechanisms.
-- [ ] Drive short light sequences and restrained electrical sparks from gameplay
+- [x] Drive short light sequences and restrained electrical sparks from gameplay
   events. Avoid stars, cosmic rings, and effects that obscure shots.
-- [ ] Extend the capture harness to retain renderer state, consume events, and
-  advance effect time. `RenderFrame` currently creates a fresh renderer per capture,
-  so existing stills do not validate transient effects.
+- [x] Extend the capture harness to retain renderer state, consume events, and
+  advance effect time. `PreviewRenderer` now advances independently of drawing;
+  the app and capture harness share the same response implementation.
 
 **Exit:** engine frame sequences show readable idle → impact → recovery states,
 with consistent shadows/reflections and no lingering flashes or excessive bloom.
+
+**Completed:** a compressed bumper cap, brief diffuser flashes and reflected
+light, slingshot kicker highlights, animated target drop/rise, lane activation,
+and independently moving plunger head/rod/coils. The chrome ball has a separate
+contact shadow and picks up nearby impact colors. Small electrical sparks replace
+star sprites and expanding rings; effects pause, expire, and reset with the game.
+The corrected lower-lane collision geometry is unchanged.
+
+**Evidence:** `output/preview-phase4/` contains real-event sequences and cropped
+comparison sheets for bumper, sling, lane, bank, and plunger, plus the standard attract/ready/play/flipper/pause/rally captures.
+Half-size sequences are in `output/preview-phase4-small/`; the bumper is also
+captured at 2× in `output/preview-phase4-2x/`. Fixtures seed actual contacts and
+park the ball after impact to isolate recovery; no synthetic events are used.
+Pause/cleanup, target collider timing/reset, repeatable draws, cached alpha
+compositing, material footprint, asset freshness, core/WASM tests, lint, and
+build/distribution checks pass. Typography remains Phase 5.
 
 ## Phase 5 — finish displays and visual hierarchy
 

@@ -10,24 +10,27 @@ import (
 )
 
 func TestMaterialBodyFitsPhysicalFootprint(t *testing.T) {
-	img := bumperMaterialImage()
-	frame := table.BumperMaterialFrame
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			_, _, _, alpha := img.At(x, y).RGBA()
-			distance := math.Hypot(float64(x)+.5-frame.Anchor.X, float64(y)+.5-frame.Anchor.Y)
-			// One source pixel of antialiasing is half a logical pixel. Dark
-			// translucent fastener shadows are decorative, never contact edges.
-			if alpha > 0xf000 && distance > frame.ContactRadius+1 {
-				t.Fatalf("opaque body at (%d,%d) extends beyond contact radius: %.2f", x, y, distance)
+	for name, img := range map[string]image.Image{"idle": bumperMaterialImage(), "compressed": bumperHitImage()} {
+		t.Run(name, func(t *testing.T) {
+			frame := table.BumperMaterialFrame
+			for y := 0; y < img.Bounds().Dy(); y++ {
+				for x := 0; x < img.Bounds().Dx(); x++ {
+					_, _, _, alpha := img.At(x, y).RGBA()
+					distance := math.Hypot(float64(x)+.5-frame.Anchor.X, float64(y)+.5-frame.Anchor.Y)
+					// One source pixel of antialiasing is half a logical pixel. Dark
+					// translucent fastener shadows are decorative, never contact edges.
+					if alpha > 0xf000 && distance > frame.ContactRadius+1 {
+						t.Fatalf("opaque body at (%d,%d) extends beyond contact radius: %.2f", x, y, distance)
+					}
+				}
 			}
-		}
-	}
-	for _, offset := range [][2]int{{106, 0}, {-107, 0}, {0, 106}, {0, -107}} {
-		_, _, _, alpha := img.At(int(frame.Anchor.X)+offset[0], int(frame.Anchor.Y)+offset[1]).RGBA()
-		if alpha < 0xf000 {
-			t.Fatalf("visible contact edge is inset at %v", offset)
-		}
+			for _, offset := range [][2]int{{106, 0}, {-107, 0}, {0, 106}, {0, -107}} {
+				_, _, _, alpha := img.At(int(frame.Anchor.X)+offset[0], int(frame.Anchor.Y)+offset[1]).RGBA()
+				if alpha < 0xf000 {
+					t.Fatalf("visible contact edge is inset at %v", offset)
+				}
+			}
+		})
 	}
 }
 

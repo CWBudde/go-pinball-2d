@@ -10,7 +10,8 @@ import (
 
 // Shared bumper material: one cool softbox above/left, cyan LEDs at the upper left,
 // pink LEDs around the remaining cap. Work in table pixels, output at 2x,
-// supersample at 6x. All shading is baked; runtime only composites four PNGs.
+// supersample at 6x. Material shading is baked; runtime adds timed emission
+// and selects a compressed cap variant after an impact.
 func newBumperCanvas() *canvas {
 	c := newCanvas(int(table.BumperMaterialFrame.Width), int(table.BumperMaterialFrame.Height))
 	c.s *= 2
@@ -55,7 +56,10 @@ func bumperChrome(x, y, r float64) (color.NRGBA, float64) {
 	return materialRGB(v+pinkReflection, v*1.04+cyanReflection, v*1.09+cyanReflection+pinkReflection*.4), 1
 }
 
-func bumperMaterialImage() image.Image {
+func bumperMaterialImage() image.Image { return bumperBody(0) }
+func bumperHitImage() image.Image      { return bumperBody(3) }
+
+func bumperBody(compression float64) image.Image {
 	c := newBumperCanvas()
 	// The complete opaque footprint stays inside the existing radius-54 collider.
 	c.ellipseSurface(96, 96, 54, 54, bumperChrome)
@@ -75,18 +79,18 @@ func bumperMaterialImage() image.Image {
 		p := 48 * bell(x, .4, .38) * math.Max(0, y)
 		return materialRGB(v+p, v*1.02+10*bell(x, -.8, .2), v*1.1+p*.3), 1
 	})
-	c.ellipseSurface(96, 89, 48, 44, bumperChrome)
-	c.ellipseSurface(96, 89, 45.9, 41.9, func(_, _, _ float64) (color.NRGBA, float64) { return black, 1 })
+	c.ellipseSurface(96, 89+compression, 48, 44, bumperChrome)
+	c.ellipseSurface(96, 89+compression, 45.9, 41.9, func(_, _, _ float64) (color.NRGBA, float64) { return black, 1 })
 	// Deep LED channel, with a narrow reflective inner lip.
-	c.ellipseSurface(96, 89, 43.8, 39.8, func(x, y, r float64) (color.NRGBA, float64) {
+	c.ellipseSurface(96, 89+compression, 43.8, 39.8, func(x, y, r float64) (color.NRGBA, float64) {
 		col, _ := bumperChrome(x, y, r)
 		return mix(col, pink, .33), 1
 	})
-	c.ellipseSurface(96, 89, 39.8, 35.8, func(_, _, _ float64) (color.NRGBA, float64) { return black, 1 })
-	c.ellipseSurface(96, 89, 37.8, 33.8, bumperChrome)
+	c.ellipseSurface(96, 89+compression, 39.8, 35.8, func(_, _, _ float64) (color.NRGBA, float64) { return black, 1 })
+	c.ellipseSurface(96, 89+compression, 37.8, 33.8, bumperChrome)
 	// Smoked glass: recessed edges, cool upper-left reflection, fine substrate
 	// grain and a restrained diagonal softbox streak. No uniform neon outline.
-	c.ellipseSurface(96, 89, 36.4, 32.4, func(x, y, r float64) (color.NRGBA, float64) {
+	c.ellipseSurface(96, 89+compression, 36.4, 32.4, func(x, y, r float64) (color.NRGBA, float64) {
 		key := bell(x, -.32, .7) * bell(y, -.48, .65)
 		grain := 1.2 * math.Sin(x*440+y*217) * math.Sin(y*381-x*59)
 		v := 8 + 19*key + grain
@@ -100,7 +104,7 @@ func bumperMaterialImage() image.Image {
 	}
 	c.line(83, 67, 100, 67, .6, metal, .6)
 	c.line(100, 67, 109, 76, .6, metal, .6)
-	c.relay(96, 92, .69, cyan)
+	c.relay(96, 92+compression, .69, cyan)
 	// Three captive screws are contained by the skirt, not floating outside it.
 	for _, a := range []float64{math.Pi / 2, math.Pi * 7 / 6, math.Pi * 11 / 6} {
 		c.bumperFastener(96+math.Cos(a)*48, 96+math.Sin(a)*48)

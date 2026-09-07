@@ -21,9 +21,11 @@ var requiredImages = []string{
 	"assets/images/logo.png",
 	"assets/images/favicon.png",
 	"assets/images/ball.png",
+	"assets/images/ball-shadow.png",
 	"assets/images/flipper.png",
 	"assets/images/bumper.png",
 	"assets/images/bumper-material.png",
+	"assets/images/bumper-hit.png",
 	"assets/images/bumper-patch.png",
 	"assets/images/bumper-shadow.png",
 	"assets/images/bumper-emission.png",
@@ -32,7 +34,9 @@ var requiredImages = []string{
 	"assets/images/target-down.png",
 	"assets/images/lane-light.png",
 	"assets/images/lane-light-off.png",
-	"assets/images/plunger.png",
+	"assets/images/plunger-head.png",
+	"assets/images/plunger-coil.png",
+	"assets/images/plunger-rod.png",
 	"assets/images/glow.png",
 	"assets/images/particle.png",
 }
@@ -48,18 +52,15 @@ var (
 	red     = draw.RGB(1, .22, .3)
 )
 
-type particle struct {
-	position physics.Vec
-	life     float64
-	maxLife  float64
-}
-
 type renderer struct {
-	loaded      map[string]bool
-	loadError   error
-	particles   []particle
-	shake       float64
-	elapsedTime float64
+	loaded         map[string]bool
+	loadError      error
+	particles      []particle
+	pulses         map[string]lightPulse
+	targetLift     map[string]float64
+	sequenceAge    float64
+	sequenceActive bool
+	elapsedTime    float64
 }
 
 func (r *renderer) preload(window draw.Window) bool {
@@ -88,35 +89,10 @@ func (r *renderer) preload(window draw.Window) bool {
 	return ready
 }
 
-func (r *renderer) consume(events []game.Event) {
-	for _, event := range events {
-		switch event.Kind {
-		case game.BumperHit, game.SlingshotHit, game.TargetDown, game.JackpotAwarded:
-			count := 5
-			if event.Kind == game.JackpotAwarded {
-				count = 18
-				r.shake = .35
-			}
-			for range count {
-				r.particles = append(r.particles, particle{position: event.At, life: .55, maxLife: .55})
-			}
-		case game.BallDrained:
-			r.shake = .22
-		}
-	}
-}
-
-func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64, statusError error) {
-	r.elapsedTime += max(0, elapsed)
+func (r *renderer) draw(window draw.Window, current *game.Game, statusError error) {
 	width, height := window.Size()
 	window.FillRect(0, 0, width, height, ink)
 	view := newViewport(width, height)
-	if r.shake > 0 {
-		r.shake -= elapsed
-		magnitude := 4 * view.scale * math.Min(1, r.shake*5)
-		view.offsetX += int(math.Sin(r.elapsedTime*89) * magnitude)
-		view.offsetY += int(math.Cos(r.elapsedTime*73) * magnitude)
-	}
 
 	r.image(window, "assets/images/background.png", view.offsetX, view.offsetY, view.width, view.height, 0)
 	// Flat material patches sit below the printed identity and every mechanism.
@@ -129,13 +105,14 @@ func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64,
 		placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
 		r.placedSprite(window, "assets/images/bumper-shadow.png", view, placement)
 	}
+	r.drawLightPools(window, current, view)
 	// Layer order: flat playfield, cast shadows, static mechanisms, dynamic
 	// mechanisms/ball, safe foreground covers, emission/effects, instrument HUD.
 	r.image(window, "assets/images/table-shadows.png", view.offsetX, view.offsetY, view.width, view.height, 0)
 	r.image(window, "assets/images/table-hardware.png", view.offsetX, view.offsetY, view.width, view.height, 0)
 	r.drawTable(window, current, view)
 	r.image(window, "assets/images/table-foreground.png", view.offsetX, view.offsetY, view.width, view.height, 0)
-	r.drawEffects(window, view, elapsed)
+	r.drawEffects(window, view)
 	r.drawHUD(window, current, view)
 	r.drawState(window, current, view)
 
@@ -160,26 +137,30 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 			path = "assets/images/lane-light.png"
 		}
 		r.spriteCentered(window, path, view, midpoint, 34, 68, 0)
+		r.laneResponse(window, view, lane, r.intensity(lane.ID))
 	}
 
 	for _, bumper := range definition.Bumpers {
 		placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
-		r.placedSprite(window, "assets/images/bumper-material.png", view, placement)
+		path := "assets/images/bumper-material.png"
+		compression := 0.0
+		if pulse, ok := r.pulses[bumper.ID]; ok && pulse.age < .095 {
+			path = "assets/images/bumper-hit.png"
+			compression = 3
+		}
+		r.placedSprite(window, path, view, placement)
+		placement.Center.Y += compression
 		r.placedSprite(window, "assets/images/bumper-emission.png", view, placement)
+		r.bumperResponse(window, view, bumper, compression, r.intensity(bumper.ID))
 	}
 	for _, post := range definition.Posts {
 		r.placedSprite(window, "assets/images/post.png", view, table.PostFrame.Place(post.Center, post.Radius/table.PostFrame.ContactRadius, 0))
 	}
+	for _, sling := range definition.Slingshots {
+		r.slingResponse(window, view, sling)
+	}
 	for _, target := range definition.DropTargets {
-		path := "assets/images/target.png"
-		if current.TargetDown(target.ID) {
-			path = "assets/images/target-down.png"
-		}
-		midpoint := target.Segment.A.Add(target.Segment.B).Mul(.5)
-		angle := math.Atan2(target.Segment.B.Y-target.Segment.A.Y, target.Segment.B.X-target.Segment.A.X) - math.Pi/2
-		// The housing fits the capsule's complete contact extent.
-		scale := (target.Segment.B.Sub(target.Segment.A).Length() + 2*target.Radius) / table.TargetFrame.ContactLength
-		r.placedSprite(window, path, view, table.TargetFrame.Place(midpoint, scale, angle))
+		r.drawTarget(window, current, view, target)
 	}
 
 	for _, flipper := range current.World.Flippers {
@@ -187,38 +168,10 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 		r.placedSprite(window, "assets/images/flipper.png", view, table.FlipperFrame.Place(flipper.Pivot, scale, flipper.Angle))
 	}
 
-	// Keep the spring foot fixed inside the well while the head retracts.
-	plungerY := definition.Plunger.Position.Y - 2 + current.PlungerCharge*8
-	plungerHeight := 40 - current.PlungerCharge*16
-	r.spriteCentered(window, "assets/images/plunger.png", view, physics.V(definition.Plunger.Position.X, plungerY), 36, plungerHeight, 0)
+	r.drawPlunger(window, current, view)
 	if current.Ball.Active {
-		r.placedSprite(window, "assets/images/ball.png", view, table.BallFrame.Place(current.Ball.Position, current.Ball.Radius/table.BallFrame.ContactRadius, 0))
+		r.drawBall(window, current, view)
 	}
-}
-
-func (r *renderer) drawEffects(window draw.Window, view viewport, elapsed float64) {
-	alive := r.particles[:0]
-	for index, effect := range r.particles {
-		effect.life -= elapsed
-		if effect.life <= 0 {
-			continue
-		}
-		progress := 1 - effect.life/effect.maxLife
-		angle := float64(index)*2.399 + r.elapsedTime*.7
-		distance := 58 * progress
-		position := effect.position.Add(physics.V(math.Cos(angle)*distance, math.Sin(angle)*distance))
-		size := 15 * (1 - progress*.65)
-		tail := position.Sub(physics.V(math.Cos(angle)*size, math.Sin(angle)*size))
-		r.thickLine(window, view, physics.Segment{A: tail, B: position}, draw.RGBA(.3, .94, 1, float32(1-progress)), 1)
-		if index%5 == 0 {
-			x, y := view.point(effect.position)
-			radius := view.size(20 + progress*40)
-			r.thickEllipse(window, x-radius, y-radius, radius*2, radius*2, draw.RGBA(.13, .91, 1, float32((1-progress)*.45)), view.stroke(1))
-		}
-		r.spriteCentered(window, "assets/images/particle.png", view, position, size, size, int(angle*180/math.Pi))
-		alive = append(alive, effect)
-	}
-	r.particles = alive
 }
 
 func (r *renderer) drawHUD(window draw.Window, current *game.Game, view viewport) {
@@ -280,6 +233,15 @@ func (r *renderer) thickLine(window draw.Window, view viewport, segment physics.
 	if drawCanvasLine(ax, ay, bx, by, color, width) {
 		return
 	}
+	// Alternate engine surfaces can provide an antialiased thick stroke without
+	// the integer-offset fallback used by older window backends.
+	if surface, ok := window.(interface {
+		StrokeLine(int, int, int, int, int, draw.Color)
+	}); ok {
+		surface.StrokeLine(ax, ay, bx, by, width, color)
+		return
+	}
+
 	normalX, normalY := -dy/length, dx/length
 	for offset := -width / 2; offset <= width/2; offset++ {
 		x := int(math.Round(normalX * float64(offset)))

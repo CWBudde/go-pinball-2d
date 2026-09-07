@@ -25,7 +25,15 @@ func main() {
 	colliders := flag.Bool("colliders", false, "overlay actual contact geometry and sensors")
 	blockout := flag.Bool("blockout", false, "render untextured layout and contact geometry")
 	selected := flag.String("frame", "", "capture only attract, ready, playing, flippers, paused, or rally")
+	sequence := flag.String("sequence", "", "capture bumper, sling, lane, bank, plunger, or all impact/recovery sequences")
 	flag.Parse()
+	if *sequence != "" {
+		if err := runSequence(*out, *width, *height, *sequence, *colliders); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(*out, *width, *height, *colliders, *blockout, *selected); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -51,6 +59,8 @@ func run(out string, width, height int, colliders, blockout bool, selected strin
 	defer window.Close()
 	current := game.New(table.New(), nil)
 	current.FinishLoading()
+	preview := new(platform.PreviewRenderer)
+	preview.Advance(current, 0, nil)
 	capture := func(name string, want game.State) error {
 		if current.State != want {
 			return fmt.Errorf("%s: engine state %s, want %s", name, current.State, want)
@@ -61,7 +71,7 @@ func run(out string, width, height int, colliders, blockout bool, selected strin
 		if blockout {
 			platform.RenderLayoutFrame(window, current)
 		} else {
-			if err := platform.RenderFrame(window, current); err != nil {
+			if err := preview.Draw(window, current); err != nil {
 				return err
 			}
 			if colliders {
@@ -86,7 +96,8 @@ func run(out string, width, height int, colliders, blockout bool, selected strin
 	}
 	step := func(frames int, input game.Input) {
 		for range frames {
-			current.Update(1.0/120, input)
+			events := current.Update(1.0/120, input)
+			preview.Advance(current, 1.0/120, events)
 		}
 	}
 	if err := capture("attract", game.Attract); err != nil {

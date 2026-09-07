@@ -17,7 +17,7 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(files), 29; got != want {
+	if got, want := len(files), 34; got != want {
 		t.Fatalf("generated %d files, want %d", got, want)
 	}
 	if err := checkAssets(filepath.Join("..", "..", "assets"), files); err != nil {
@@ -32,9 +32,11 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 		"images/table-foreground.png":   {1440, 2160},
 		"images/logo.png":               {640, 200},
 		"images/favicon.png":            {64, 64},
+		"images/ball-shadow.png":        {96, 64},
 		"images/ball.png":               {64, 64},
 		"images/flipper.png":            {360, 128},
 		"images/bumper.png":             {128, 128},
+		"images/bumper-hit.png":         {384, 384},
 		"images/bumper-material.png":    {384, 384},
 		"images/bumper-patch.png":       {384, 384},
 		"images/bumper-shadow.png":      {384, 384},
@@ -44,6 +46,9 @@ func TestCommittedAssetsAreFreshAndValid(t *testing.T) {
 		"images/target-down.png":        {128, 192},
 		"images/lane-light.png":         {96, 192},
 		"images/lane-light-off.png":     {96, 192},
+		"images/plunger-head.png":       {72, 24},
+		"images/plunger-coil.png":       {64, 16},
+		"images/plunger-rod.png":        {12, 64},
 		"images/plunger.png":            {112, 360},
 		"images/glow.png":               {192, 192},
 		"images/particle.png":           {32, 32},

@@ -80,6 +80,26 @@ Use `-frame rally` (or `attract`, `ready`, `playing`, `flippers`, `paused`)
 to save one state while still running the scripted simulation checks. This is
 useful for expensive double-size captures.
 
+Capture timed mechanical and lighting responses with:
+
+```sh
+./scripts/render-preview.sh -sequence all -out output/preview-phase4
+./scripts/render-preview.sh -sequence bumper -width 1440 -height 2160 -out output/preview-phase4-2x
+```
+
+Choose `bumper`, `sling`, `lane`, `bank`, `plunger`, or `all`. Each sequence saves
+full engine frames and a labeled crop sheet. The fixtures position a real ball
+before contact, require the expected game event, and then park it away from the
+assembly so recovery can be inspected without additional collisions. No effects
+are injected. Bumper/sling/lane samples show impact, 50 ms, and 600 ms; the bank
+also shows its light sequence and automatic reset. Plunger samples show rest,
+half charge, full charge, and release. `-colliders` also works with sequences.
+
+`PreviewRenderer.Advance` accepts the events returned by `Game.Update` once per
+update, even between saved frames; `Draw` does not advance animation time.
+The software surface caches up to 64 unrotated resamples for faster sequences
+and antialiases thick response strokes.
+
 The capture surface uses Go Mono for text and software image filtering, so
 font rasterization and antialiasing may differ slightly from the display backend.
 

@@ -170,18 +170,27 @@ func logoImage() image.Image {
 
 func ballImage() image.Image {
 	c := newCanvas(int(table.BallFrame.Width), int(table.BallFrame.Height))
-	c.circle(33, 36, 27, black, .4)
-	c.circleGradient(32, 31, 27, func(t float64) (color.NRGBA, float64) {
-		if t < .58 {
-			return mix(silver, graphite, t/.58), 1
-		}
-		return mix(graphite, silver, (t-.58)/.42), 1
+	c.ellipseSurface(32, 31, 27, 27, func(x, y, r float64) (color.NRGBA, float64) {
+		// A spherical chrome reflection: broad cool key, dark horizon, sharp strip
+		// and grazing LED color. No painted shadow inside the physical ball image.
+		z := math.Sqrt(math.Max(0, 1-r*r))
+		key := math.Max(0, -.55*x-.65*y+.52*z)
+		v := 24 + 115*bell(key, .87, .16) + 100*bell(y+.2*x, -.43, .11)
+		v += 95*math.Pow(r, 9) + 50*bell(y, .63, .06)
+		v -= 18 * bell(y, .22, .14)
+		cyanEdge := 45 * bell(x, -.86, .12)
+		pinkEdge := 55 * bell(x, .8, .12) * math.Max(0, y+.3)
+		return materialRGB(v+pinkEdge, v*1.06+cyanEdge, v*1.13+cyanEdge+pinkEdge*.3), 1
 	})
-	c.circle(25, 22, 13, silver, .85)
-	c.circle(23, 19, 8, color.NRGBA{R: 255, G: 255, B: 255, A: 255}, .95)
-	c.line(19, 46, 31, 50, 2, pink, .8)
-	c.line(47, 30, 48, 38, 2, cyan, .85)
-	return c.finish()
+	return c.finishAlpha()
+}
+
+func ballShadowImage() image.Image {
+	c := materialCanvas(48, 32)
+	c.ellipseSurface(24, 16, 22, 13, func(_, _, r float64) (color.NRGBA, float64) {
+		return black, .7 * math.Pow(math.Max(0, 1-r*r), 1.1)
+	})
+	return c.finishAlpha()
 }
 
 func bumperImage() image.Image {

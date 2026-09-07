@@ -286,3 +286,25 @@ func (c *canvas) boardDetails() {
 		}
 	}
 }
+
+// Separate moving plunger parts retain their metal finish during compression.
+func plungerHeadImage() image.Image {
+	c := materialCanvas(36, 12)
+	c.capsuleSurface(8, 6, 28, 6, 4, bumperChrome)
+	c.line(9, 8, 27, 8, .7, pink, .75)
+	return c.finishAlpha()
+}
+
+func plungerCoilImage() image.Image {
+	c := materialCanvas(32, 8)
+	c.line(5, 2, 27, 6, 2.8, black, 1)
+	c.line(5, 6, 27, 2, 2.8, metal, 1)
+	c.line(5, 5.5, 27, 1.5, .9, silver, 1)
+	return c.finishAlpha()
+}
+
+func plungerRodImage() image.Image {
+	c := materialCanvas(6, 32)
+	c.capsuleSurface(3, 3, 3, 29, 2, bumperChrome)
+	return c.finishAlpha()
+}

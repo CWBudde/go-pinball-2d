@@ -23,6 +23,7 @@ type surface struct {
 	draw.Window
 	pixels   *image.RGBA
 	images   map[string]image.Image
+	scaled   map[scaledKey]*image.RGBA
 	typeface *opentype.Font
 	faces    map[float32]font.Face
 }
@@ -57,6 +58,34 @@ func (s *surface) DrawLine(ax, ay, bx, by int, col draw.Color) {
 	for i := 0; i <= steps; i++ {
 		t := float64(i) / float64(max(1, steps))
 		s.FillRect(ax+int(math.Round(float64(dx)*t)), ay+int(math.Round(float64(dy)*t)), 1, 1, col)
+	}
+}
+
+// StrokeLine matches the display's butt-ended thick strokes. Distance-based
+// coverage avoids gaps and stair steps from stacking rounded integer lines.
+func (s *surface) StrokeLine(ax, ay, bx, by, width int, col draw.Color) {
+	dx, dy := float64(bx-ax), float64(by-ay)
+	length := math.Hypot(dx, dy)
+	if length == 0 {
+		return
+	}
+	ux, uy := dx/length, dy/length
+	radius := float64(width) / 2
+	pad := int(math.Ceil(radius + 1))
+	bounds := image.Rect(min(ax, bx)-pad, min(ay, by)-pad, max(ax, bx)+pad+1, max(ay, by)+pad+1).Intersect(s.pixels.Bounds())
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			px, py := float64(x)+.5-float64(ax), float64(y)+.5-float64(ay)
+			along := math.Abs(px*ux+py*uy-length/2) - length/2
+			across := math.Abs(-px*uy+py*ux) - radius
+			distance := math.Hypot(math.Max(along, 0), math.Max(across, 0)) + math.Min(math.Max(along, across), 0)
+			coverage := math.Max(0, math.Min(1, .5-distance))
+			if coverage > 0 {
+				sample := col
+				sample.A *= float32(coverage)
+				s.FillRect(x, y, 1, 1, sample)
+			}
+		}
 	}
 }
 
@@ -122,10 +151,36 @@ func (s *surface) ImageSize(path string) (int, int, error) {
 	return img.Bounds().Dx(), img.Bounds().Dy(), nil
 }
 
+type scaledKey struct {
+	path          string
+	width, height int
+}
+
 func (s *surface) DrawImageFileTo(path string, x, y, width, height, rotation int) error {
 	img, err := s.load(path)
 	if err != nil {
 		return err
+	}
+	// Cache unrotated resamples for sparse animation captures. The same source
+	// pixels and CatmullRom filter are used; only repeated filtering is skipped.
+	if rotation == 0 {
+		if s.scaled == nil {
+			s.scaled = make(map[scaledKey]*image.RGBA)
+		}
+		key := scaledKey{path, width, height}
+		scaled := s.scaled[key]
+		if scaled == nil {
+			scaled = image.NewRGBA(image.Rect(0, 0, width, height))
+			transform := f64.Aff3{float64(width) / float64(img.Bounds().Dx()), 0, 0, 0, float64(height) / float64(img.Bounds().Dy()), 0}
+			xdraw.CatmullRom.Transform(scaled, transform, img, img.Bounds(), xdraw.Over, nil)
+			// Mechanism motion must not make an unbounded cache of intermediate sizes.
+			if len(s.scaled) >= 64 {
+				clear(s.scaled)
+			}
+			s.scaled[key] = scaled
+		}
+		imagedraw.Draw(s.pixels, image.Rect(x, y, x+width, y+height), scaled, image.Point{}, imagedraw.Over)
+		return nil
 	}
 	a := float64(rotation) * math.Pi / 180
 	cos, sin := math.Cos(a), math.Sin(a)

@@ -63,10 +63,12 @@ than the opaque background are transparent.
 | `images/table-foreground.png` | 1440×2160 | cabinet perimeter, display housings, and drain lip |
 | `images/logo.png` | 640×200 | Neon Relay circuit wordmark |
 | `images/favicon.png` | 64×64 | compact relay-mark icon |
-| `images/ball.png` | 64×64 | shaded steel pinball |
+| `images/ball.png` | 64×64 | spherical chrome reflections with a dark horizon and cool key |
+| `images/ball-shadow.png` | 96×64 | separate soft contact shadow |
 | `images/flipper.png` | 360×128 | ivory blade, shaded rubber skirt, and machined pivot |
 | `images/bumper.png` | 128×128 | legacy bumper asset, no longer drawn by the game |
 | `images/bumper-material.png` | 384×384 | shared raised metal/rubber/glass body for all three bumpers |
+| `images/bumper-hit.png` | 384×384 | compressed cap within the same opaque contact footprint |
 | `images/bumper-patch.png` | 384×384 | flat textured graphite, routed pads, and reflected LED pools |
 | `images/bumper-shadow.png` | 384×384 | directional contact shadow and soft penumbra |
 | `images/bumper-emission.png` | 384×384 | segmented diffusers, narrow LED cores, and local bloom |
@@ -75,9 +77,12 @@ than the opaque background are transparent.
 | `images/target-down.png` | 128×192 | flush, dark target socket with recessed contacts |
 | `images/lane-light.png` | 96×192 | illuminated rollover chevrons |
 | `images/lane-light-off.png` | 96×192 | unlit rollover insert |
-| `images/plunger.png` | 112×360 | polished shaft, helical spring, and rubber plunger handle |
+| `images/plunger.png` | 112×360 | legacy combined plunger, no longer drawn |
+| `images/plunger-head.png` | 72×24 | translating chrome head and fixed foot |
+| `images/plunger-coil.png` | 64×16 | single spring turn, repeated with variable spacing |
+| `images/plunger-rod.png` | 12×64 | polished shaft with variable exposed length |
 | `images/glow.png` | 192×192 | soft cyan-violet additive glow |
-| `images/particle.png` | 32×32 | eight-point impact spark |
+| `images/particle.png` | 32×32 | legacy spark, replaced by short runtime strokes |
 
 ## Rendering approach
 
@@ -131,14 +136,15 @@ around the unchanged radius-54 body. The raised cap is visually offset upward
 inside that footprint. The patch is flat; shadow and emission have no collision
 surface. All four layers render before the ball. Tests check the opaque footprint,
 transparent margins, and alpha filtering; engine crops check placement at 0.5×,
-1×, and 2×. The separate emission is an idle appearance; impact states remain Phase 4.
+1×, and 2×. The emission supplies the idle appearance; Phase 4 adds timed cores,
+reflections, and the compressed body variant.
 
 The source art is authored Go in `cmd/genassets/bumper_material.go`; the four PNGs
 are generated outputs in `assets/images/`. There are no curated raster inputs to
 preserve in this phase. Do not hand-edit generated PNGs. If later work introduces
 painted sources, store them outside `images/` and `audio/` (for example
 `assets/sources/`) and explicitly add the conversion step to the generator.
-Freshness verification covers 22 PNGs and seven WAVs.
+Freshness verification covers 27 PNGs and seven WAVs.
 
 Phase 3 extends the palette to rails, flippers, posts, target faces, lane inserts,
 and the plunger. `hardware_material.go` authors the reusable surfaces. Capsule
@@ -149,18 +155,28 @@ Slingshot covers have smoked translucent faces, routed traces, chrome mounting
 posts, rubber skirts, and down-right shadows. Only the cabinet and drain lip render
 after the ball. Flush target sockets remain below a ball after a target drops.
 
-The spring well is recessed, with a compact moving plunger below the waiting ball.
-Its sprite shortens as the head retracts, keeping the foot fixed inside the well.
-Independent shaft/coil motion and event-driven illumination remain Phase 4. Baked flipper shading rotates with
-the blade; a moving specular treatment also belongs to that lighting phase.
+The spring well is recessed. Separate head, rod, and coil sprites keep the head
+size and wire thickness fixed as coil spacing compresses; the foot stays inside
+the well. The ball uses a separate shadow and a chrome body with directional
+reflections. Flipper key highlights remain baked and rotate with the blade.
 
-All shading is offline and textures are cached. The extra printed-markings layer
+Material shading is offline; `internal/platform/response.go` adds local light,
+short sparks, and mechanical response at runtime. A bumper cap lowers 3 logical
+units for 95 ms; impact light fades within 450 ms. Target faces lower across
+100 ms and rise across 160 ms while colliders follow game rules immediately.
+Bank/jackpot light sequences end within 900 ms, and spark storage is capped at 36.
+Drawing never advances effect time; pause freezes it, and a new ball clears it.
+
+The extra printed-markings layer
 prevents bumper patches from covering the title and makes those planes independent.
 The five full-table textures are 1440×2160 (about 59 MiB decoded RGBA together).
 This intentionally trades texture memory for crisp 2× captures while keeping
 static detail in five image draws. The complete PNG inventory is about 1.1 MiB.
 The shared bumper textures are reused three times, adding six draws over Phase 2;
-separating the markings adds one more. No per-pixel shading runs during play.
+separating the markings adds one more. No per-pixel shading runs during play. Phase 4 adds five small textures (about
+61 KiB combined) and draws target sockets beneath moving faces, a ball shadow,
+and nine compact plunger parts. Idle hardware still uses image draws only;
+additional light/spark primitives are restricted to active responses.
 
 ## Audio inventory
 

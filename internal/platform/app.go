@@ -64,7 +64,7 @@ func (a *app) update(window draw.Window) {
 
 	events := a.game.Update(elapsed, input)
 	publishStatus(a.game)
-	a.renderer.consume(events)
+	a.renderer.advance(a.game, elapsed, events)
 	if a.audioUnlocked {
 		for _, event := range events {
 			if path := soundFor(event.Kind); path != "" {
@@ -74,7 +74,7 @@ func (a *app) update(window draw.Window) {
 			}
 		}
 	}
-	a.renderer.draw(window, a.game, elapsed, a.statusError)
+	a.renderer.draw(window, a.game, a.statusError)
 }
 
 func (a *app) clearStatusError() {
