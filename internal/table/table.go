@@ -16,6 +16,12 @@ const (
 
 	BallRadius = 14.0
 
+	// The shooter lane is outside the lower playfield: center the mechanisms
+	// between the left wall and its inner rail, not the cabinet edges.
+	PlayfieldLeft   = 40.0
+	PlayfieldRight  = 625.0
+	PlayfieldCenter = (PlayfieldLeft + PlayfieldRight) / 2
+
 	BumperScore     = 100
 	SlingshotScore  = 50
 	RolloverScore   = 250
@@ -188,8 +194,8 @@ func New() *Definition {
 		}
 	}
 
-	leftFlipper := physics.NewFlipper("flipper_left", physics.V(220, 925), 105, 16, .31, -.58)
-	rightFlipper := physics.NewFlipper("flipper_right", physics.V(500, 925), 105, 16, math.Pi-.31, math.Pi+.58)
+	leftFlipper := physics.NewFlipper("flipper_left", physics.V(PlayfieldCenter-140, 925), 105, 16, .31, -.58)
+	rightFlipper := physics.NewFlipper("flipper_right", physics.V(PlayfieldCenter+140, 925), 105, 16, math.Pi-.31, math.Pi+.58)
 
 	d := &Definition{
 		OuterWalls: []physics.LineCollider{
@@ -198,9 +204,9 @@ func New() *Definition {
 			line("wall_outer_top", 120, 55, 565, 55, 5),
 			line("wall_outer_left", 40, 150, 40, 815, 5),
 			line("wall_outer_left_lower", 40, 815, 155, 1015, 5),
-			line("wall_outer_left_drain", 155, 1015, 260, 1050, 5),
+			line("wall_outer_left_drain", 155, 1015, 240, 1050, 5),
 			line("wall_outer_right_lower", 625, 815, 510, 1015, 5),
-			line("wall_outer_right_drain", 510, 1015, 510, 1050, 5),
+			line("wall_outer_right_drain", 510, 1015, 425, 1050, 5),
 		},
 		ShooterLane: []physics.LineCollider{
 			line("wall_shooter_outer_upper", 565, 55, 650, 85, 5),
@@ -211,29 +217,13 @@ func New() *Definition {
 			line("wall_shooter_inner", 625, 230, 625, 1045, 5),
 			line("wall_shooter_bottom", 625, 1045, 685, 1045, 5),
 		},
-		GuideWalls: []physics.LineCollider{
-			line("guide_left_outlane", 90, 730, 120, 810, 4),
-			line("guide_left_inlane", 195, 823, 208, 882, 4),
-			line("guide_left_flipper", 208, 882, 220, 901, 4),
-			line("guide_right_outlane", 584, 730, 580, 810, 4),
-			line("guide_right_inlane", 525, 823, 512, 882, 4),
-			line("guide_right_flipper", 512, 882, 500, 901, 4),
-		},
+
 		Bumpers: []Bumper{
 			{ID: "bumper_left", Center: physics.V(238, 320), Radius: 54, Score: BumperScore},
 			{ID: "bumper_right", Center: physics.V(476, 320), Radius: 54, Score: BumperScore},
 			{ID: "bumper_center", Center: physics.V(344, 627), Radius: 54, Score: BumperScore},
 		},
-		Slingshots: []Slingshot{
-			{
-				ID: "slingshot_left", Score: SlingshotScore, Radius: 9,
-				Triangle: [3]physics.Vec{physics.V(185, 688), physics.V(267, 852), physics.V(195, 823)},
-			},
-			{
-				ID: "slingshot_right", Score: SlingshotScore, Radius: 9,
-				Triangle: [3]physics.Vec{physics.V(535, 688), physics.V(525, 823), physics.V(453, 852)},
-			},
-		},
+
 		RolloverLanes: []Lane{
 			{ID: "rollover_left", Segment: physics.Segment{A: physics.V(211, 185), B: physics.V(267, 185)}, Radius: 7, Score: RolloverScore},
 			{ID: "rollover_center", Segment: physics.Segment{A: physics.V(331, 185), B: physics.V(387, 185)}, Radius: 7, Score: RolloverScore},
@@ -245,30 +235,55 @@ func New() *Definition {
 			{ID: "target_relay_3", Segment: physics.Segment{A: physics.V(488, 538), B: physics.V(528, 558)}, Radius: 12, Score: DropTargetScore},
 			{ID: "target_relay_4", Segment: physics.Segment{A: physics.V(475, 600), B: physics.V(515, 620)}, Radius: 12, Score: DropTargetScore},
 		},
-		Inlanes: []Lane{
-			{ID: "inlane_left", Segment: physics.Segment{A: physics.V(155, 805), B: physics.V(195, 890)}, Radius: 12},
-			{ID: "inlane_right", Segment: physics.Segment{A: physics.V(558, 805), B: physics.V(525, 890)}, Radius: 12},
-		},
-		Outlanes: []Lane{
-			{ID: "outlane_left", Segment: physics.Segment{A: physics.V(70, 825), B: physics.V(135, 955)}, Radius: 12},
-			{ID: "outlane_right", Segment: physics.Segment{A: physics.V(590, 825), B: physics.V(525, 955)}, Radius: 12},
-		},
-		Posts: []Post{
-			{ID: "post_left_upper", Center: physics.V(105, 650), Radius: 13},
-			{ID: "post_right_upper", Center: physics.V(585, 650), Radius: 13},
-			{ID: "post_left_sling", Center: physics.V(185, 688), Radius: 14},
-			{ID: "post_right_sling", Center: physics.V(535, 688), Radius: 14},
-			{ID: "post_left_inlane", Center: physics.V(267, 852), Radius: 12},
-			{ID: "post_right_inlane", Center: physics.V(453, 852), Radius: 12},
-			{ID: "post_left_flipper", Center: physics.V(200, 900), Radius: 11},
-			{ID: "post_right_flipper", Center: physics.V(520, 900), Radius: 11},
-		},
-		Drain:     Drain{ID: "drain", Min: physics.V(260, 1035), Max: physics.V(510, Height)},
+
+		Drain:     Drain{ID: "drain", Min: physics.V(225, 1035), Max: physics.V(440, Height)},
 		BallSpawn: physics.V(655, 985),
 		Plunger: PlungerDefinition{
 			ID: "plunger", Position: physics.V(655, 1020), Mechanism: physics.NewPlunger(physics.V(0, -1)),
 		},
 		Flippers: []*physics.Flipper{leftFlipper, rightFlipper},
+	}
+
+	// Each side has two distinct channels. The continuous divider keeps an
+	// outlane ball below the return guide; its upper face feeds the flipper hub.
+	// Mirror the entire lower assembly about the usable playfield center.
+	for _, side := range []string{"left", "right"} {
+		point := func(x, y float64) physics.Vec {
+			if side == "right" {
+				x = 2*PlayfieldCenter - x
+			}
+			return physics.V(x, y)
+		}
+		path := []physics.Vec{point(95, 725), point(95, 815), point(125, 865), point(145, 890), point(194, 898)}
+		for i := 1; i < len(path); i++ {
+			a, b := path[i-1], path[i]
+			guide := line(fmt.Sprintf("guide_%s_return_%d", side, i), a.X, a.Y, b.X, b.Y, 4)
+			// Steel return guides absorb impacts so the ball rolls down the chute.
+			guide.Material = physics.Material{Restitution: .02, Friction: .015}
+			d.GuideWalls = append(d.GuideWalls, guide)
+		}
+		d.Slingshots = append(d.Slingshots, Slingshot{
+			ID: "slingshot_" + side, Score: SlingshotScore, Radius: 9,
+			Triangle: [3]physics.Vec{point(155, 715), point(245, 845), point(170, 815)},
+		})
+		d.Inlanes = append(d.Inlanes, Lane{
+			ID:      "inlane_" + side,
+			Segment: physics.Segment{A: point(117, 780), B: point(139, 780)}, Radius: 4,
+		})
+		d.Outlanes = append(d.Outlanes, Lane{
+			ID:      "outlane_" + side,
+			Segment: physics.Segment{A: point(58, 780), B: point(78, 780)}, Radius: 4,
+		})
+		for _, post := range []struct {
+			name         string
+			x, y, radius float64
+		}{
+			{"upper", 95, 725, 9},
+			{"sling", 155, 715, 12},
+			{"inlane", 245, 845, 12},
+		} {
+			d.Posts = append(d.Posts, Post{ID: "post_" + side + "_" + post.name, Center: point(post.x, post.y), Radius: post.radius})
+		}
 	}
 
 	// Upper guide shoulders frame three open-bottom rollover channels. Keep the

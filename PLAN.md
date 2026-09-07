@@ -20,7 +20,7 @@ retain an original, readable 2D pinball game. A pixel-perfect clone is unnecessa
   launch, play, raised flippers, and pause; reference concept saved in the repo.
 
 Recent validation passed for WASM tests/lint/build, core and asset checks, and
-engine captures at 720×1080 and 360×540. Native graphics checks remain dependent
+engine captures at 360×540, 720×1080, and 1440×2160. Native graphics checks remain dependent
 on unavailable OpenGL/X11 development headers in this environment. Completed
 infrastructure does not mean the visual target has been reached.
 
@@ -29,10 +29,10 @@ infrastructure does not mean the visual target has been reached.
 | Area | Current rendering | Target in the prototype |
 | --- | --- | --- |
 | Composition | New upper arch, framed lanes, and title above the lower bumper | Built-up upper arch; title between upper pair and lower bumper |
-| Construction | Thin, angular rails and flat triangular plastics | Curved metal guides, raised assemblies, substantial cabinet and apron |
-| Materials | One shaded bumper study; other mechanisms still use simple gradients | Beveled chrome, dark rubber, smoked plastic, textured graphite |
-| Light | Local reflection/shadow proof on one bumper; mostly bright borders elsewhere | Selective LED bloom, reflected color, contact shadows and dark recesses |
-| Detail | Isolated traces and small floating targets | Routed circuitry around fitted housings, brackets, fasteners and inserts |
+| Construction | Fitted guides and slings, paired return/drain lanes, cabinet lip, and apron | Curved metal guides, raised assemblies, substantial cabinet and apron |
+| Materials | Shared chrome/rubber/glass treatment across mechanisms; highlights are baked | Beveled chrome, dark rubber, smoked plastic, textured graphite |
+| Light | Baked contact shadows and local reflections throughout; transient response still pending | Selective LED bloom, reflected color, contact shadows and dark recesses |
+| Detail | Fitted target sockets, routing pads, fasteners, panel seams, and grain | Routed circuitry around fitted housings, brackets, fasteners and inserts |
 | Presentation | Plain score panels and overlay text | Integrated instrument displays and a consistent technical type system |
 
 The priority is composition and physical construction, followed by materials
@@ -106,21 +106,61 @@ rules are in `assets/README.md`. Impact animation remains Phase 4.
 
 ## Phase 3 — rebuild the table as fitted hardware
 
-- [ ] Apply the proven treatment to all bumpers, the four-target bank, lane
+- [x] Apply the proven treatment to all bumpers, the four-target bank, lane
   inserts, posts, flipper hubs/blades, and a recessed spring/plunger assembly.
-- [ ] Replace uniform rail strokes with curved guide assemblies, chrome edges,
+- [x] Replace uniform rail strokes with curved guide assemblies, chrome edges,
   supports, and rubber contact faces. Derive matching collision segments from
   shared paths wherever the shape changes ball travel.
-- [ ] Give slingshots layered translucent covers, mounting posts, rubber skirts,
+- [x] Give slingshots layered translucent covers, mounting posts, rubber skirts,
   and shadows; add a substantial cabinet lip, upper display housing, and drain apron.
-- [ ] Add purposeful PCB routing, pads, panel seams, restrained wear, and fine
+- [x] Add purposeful PCB routing, pads, panel seams, restrained wear, and fine
   surface grain around the mechanisms. Preserve clear ball travel areas.
-- [ ] Split the currently monolithic background where foreground covers or
+- [x] Split the currently monolithic background where foreground covers or
   changing components require separate layers; keep static detail baked for speed.
 
 **Exit:** the full unlit table looks mechanically assembled, with consistent
 scale, depth, joins, and contact edges. No ball or moving flipper clips through
 visible hardware unexpectedly.
+
+**Completed:** shared bumper treatment throughout; shaded target faces and flush
+sockets, lane inserts, posts, flipper blades/hubs, and a recessed plunger well.
+Chrome guide bands and captive brackets follow the existing collider paths,
+including the curved upper arch. Slings have smoked covers, routed traces,
+mounting posts, rubber skirts, and shadows. Cabinet/display bezels and apron
+panels now have layered edges, fasteners, and restrained machining detail.
+
+Printed markings are separate from the playfield so bumper patches cannot cover
+the title. Static layers and mechanism sprites now ship at 2×, with shared anchors
+and premultiplied alpha filtering. Physics geometry is unchanged. Source art and
+texture costs are documented in `assets/README.md`; event-driven lighting remains
+Phase 4, and display typography remains Phase 5.
+
+**Evidence:** `output/preview-phase3/before-after.png` compares Phase 2 (left) with
+Phase 3 (right), using matching engine rally frames. Final captures are in
+`output/preview-phase3/`, `output/preview-phase3-small/`,
+`output/preview-phase3-2x/`, and `output/preview-phase3-colliders/`; 2× detail crops
+cover the upper assembly, target bank, and lower assembly. The capture tool now
+accepts `-frame` for individual states. Opaque footprint/anchor checks, complete
+WASM tests, final native asset freshness checks, lint, formatting, production
+build, and distribution verification pass. The scripted rally remains 6,300
+points with unchanged ball positions and clear flipper sweeps.
+
+### Lower-table physics correction
+
+- [x] Center the flippers and mirror both lower assemblies at x=332.5, between
+  the left wall and shooter divider, moving the flipper pair 27.5 units left.
+- [x] Give each side a continuous return guide separating the inlane from the
+  outlane. Inlanes roll onto their adjacent flipper; outlanes bypass it and reach
+  the centered drain. Remove obstructing return posts and damp guide rebound.
+- [x] Refit slings, apron panels, shadows, and printed arrows to the new geometry.
+  Cyan inserts mark returns; amber inserts mark outlanes. These are flush markings.
+- [x] Verify continuous ball routes with 2 units of radial clearance beyond the
+  14-unit ball radius, plus 108 entry-position/velocity simulations. Full flipper
+  sweeps, dropped-ball drain routing, and launch regression checks pass.
+
+**Evidence:** direct engine frames in `output/preview-lanes/` and raised-flipper
+collision overlays in `output/preview-lanes-colliders/`. Core/native and WASM tests,
+asset freshness, lint, and distribution verification cover the correction.
 
 ## Phase 4 — integrate light and mechanical response
 

@@ -39,18 +39,16 @@ func (s SpriteFrame) Place(anchor physics.Vec, scale, angle float64) Placement {
 // These source frames are shared by asset authoring and runtime placement.
 var (
 	BumperFrame  = SpriteFrame{Width: 128, Height: 128, Anchor: physics.V(64, 64), ContactRadius: 55}
-	PostFrame    = SpriteFrame{Width: 48, Height: 48, Anchor: physics.V(24, 24), ContactRadius: 19}
+	PostFrame    = SpriteFrame{Width: 96, Height: 96, Anchor: physics.V(48, 48), ContactRadius: 38}
 	BallFrame    = SpriteFrame{Width: 64, Height: 64, Anchor: physics.V(32, 31), ContactRadius: 27}
-	FlipperFrame = SpriteFrame{Width: 180, Height: 64, Anchor: physics.V(30, 32), Tip: physics.V(148, 32)}
-	TargetFrame  = SpriteFrame{Width: 64, Height: 96, Anchor: physics.V(32, 46), ContactLength: 84}
+	FlipperFrame = SpriteFrame{Width: 360, Height: 128, Anchor: physics.V(60, 64), Tip: physics.V(296, 64)}
+	TargetFrame  = SpriteFrame{Width: 128, Height: 192, Anchor: physics.V(64, 92), ContactLength: 84 * 2}
 )
 
-// BumperMaterialFrame shares a 2x canvas across the study's patch, shadow,
+// BumperMaterialFrame shares a 2x canvas across each bumper's patch, shadow,
 // body, and emission. Only the body has height; its contact radius stays 54
 // table units. The surrounding patch and light cannot occlude a moving ball.
 var BumperMaterialFrame = SpriteFrame{Width: 384, Height: 384, Anchor: physics.V(192, 192), ContactRadius: 108}
-
-const MaterialStudyBumperID = "bumper_left"
 
 // TitleOrigin is printed on the playfield, between the upper pair and lower
 // bumper. It has no height and never occludes the ball.

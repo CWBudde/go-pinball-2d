@@ -8,7 +8,7 @@ import (
 	"github.com/CWBudde/go-pinball-2d/internal/table"
 )
 
-// Material study: one cool softbox above/left, cyan LEDs at the upper left,
+// Shared bumper material: one cool softbox above/left, cyan LEDs at the upper left,
 // pink LEDs around the remaining cap. Work in table pixels, output at 2x,
 // supersample at 6x. All shading is baked; runtime only composites four PNGs.
 func newBumperCanvas() *canvas {
@@ -210,7 +210,7 @@ func bumperPatchImage() image.Image {
 
 // Average premultiplied samples, then unpremultiply for PNG. Straight-alpha
 // averaging would darken pale metal and LED edges against transparent padding.
-// Kept separate from the legacy art pipeline to avoid restyling other hardware.
+// Used by every material layer; legacy icons keep their original filter.
 func (c *canvas) finishAlpha() *image.NRGBA {
 	out := image.NewNRGBA(image.Rect(0, 0, c.w, c.h))
 	const samples = supersample * supersample

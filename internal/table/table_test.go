@@ -20,7 +20,7 @@ func TestNeonRelayFeatureCountsAndIDs(t *testing.T) {
 		{"drop targets", len(d.DropTargets), 4},
 		{"inlanes", len(d.Inlanes), 2},
 		{"outlanes", len(d.Outlanes), 2},
-		{"posts", len(d.Posts), 8},
+		{"posts", len(d.Posts), 6},
 		{"flippers", len(d.Flippers), 2},
 	}
 	for _, check := range checks {
@@ -117,31 +117,6 @@ func TestRestingFlippersLeaveBallDrainGap(t *testing.T) {
 	freeGap := rightTip.Sub(leftTip).Length() - d.Flippers[0].Radius - d.Flippers[1].Radius
 	if freeGap <= BallRadius*2 {
 		t.Fatalf("resting flippers close the drain: free gap %.2f, ball diameter %.2f", freeGap, BallRadius*2)
-	}
-}
-
-func TestFlipperPostsDoNotOverlapFlippers(t *testing.T) {
-	d := New()
-	posts := map[string]Post{}
-	for _, post := range d.Posts {
-		posts[post.ID] = post
-	}
-	for _, side := range []string{"left", "right"} {
-		post := posts["post_"+side+"_flipper"]
-		var flipper *physics.Flipper
-		for _, candidate := range d.Flippers {
-			if candidate.ID == "flipper_"+side {
-				flipper = candidate
-				break
-			}
-		}
-		if flipper == nil {
-			t.Fatalf("missing %s flipper", side)
-		}
-		distance := post.Center.Sub(flipper.Pivot).Length()
-		if distance <= post.Radius+flipper.Radius {
-			t.Errorf("%s post overlaps flipper: distance %.2f, combined radius %.2f", side, distance, post.Radius+flipper.Radius)
-		}
 	}
 }
 

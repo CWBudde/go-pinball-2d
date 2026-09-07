@@ -422,6 +422,7 @@ func generatedAssets() ([]generatedFile, error) {
 		make func() image.Image
 	}{
 		{"images/background.png", backgroundImage},
+		{"images/playfield-markings.png", playfieldMarkingsImage},
 		{"images/table-shadows.png", tableShadowImage},
 		{"images/table-hardware.png", tableHardwareImage},
 		{"images/table-foreground.png", tableForegroundImage},

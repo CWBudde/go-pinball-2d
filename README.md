@@ -34,6 +34,10 @@ Each game has three balls. Complete the drop-target bank to increase the bonus
 multiplier, and combine lit lanes and targets to score a jackpot. The high score
 is retained in browser storage.
 
+Beside each flipper, the cyan-marked inlane returns the ball to the paddle; the
+amber-marked outlane leads to the drain. The lower assembly is centered within
+the main playfield, excluding the launch lane on the right.
+
 ## Development
 
 The common repository tasks are exposed through `just`:
@@ -65,13 +69,16 @@ For another output size:
 ```
 
 Each run also saves `bumper-comparison.png`, cropped directly from the rally
-frame: the Phase 2 upper-left bumper on the left, the original upper-right bumper
-on the right. The crops retain the capture's pixel scale. Inspect the material
-study at 2× with:
+frame: the upper-left and upper-right bumpers in their actual surroundings.
+The crops retain the capture's pixel scale. Inspect the material treatment at 2× with:
 
 ```sh
-./scripts/render-preview.sh -width 1440 -height 2160 -out output/preview-phase2-2x
+./scripts/render-preview.sh -width 1440 -height 2160 -out output/preview-phase3-2x
 ```
+
+Use `-frame rally` (or `attract`, `ready`, `playing`, `flippers`, `paused`)
+to save one state while still running the scripted simulation checks. This is
+useful for expensive double-size captures.
 
 The capture surface uses Go Mono for text and software image filtering, so
 font rasterization and antialiasing may differ slightly from the display backend.

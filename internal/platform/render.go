@@ -14,6 +14,7 @@ import (
 
 var requiredImages = []string{
 	"assets/images/background.png",
+	"assets/images/playfield-markings.png",
 	"assets/images/table-shadows.png",
 	"assets/images/table-hardware.png",
 	"assets/images/table-foreground.png",
@@ -118,13 +119,15 @@ func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64,
 	}
 
 	r.image(window, "assets/images/background.png", view.offsetX, view.offsetY, view.width, view.height, 0)
-	// The material study's flat patch and shadow sit below every mechanism.
+	// Flat material patches sit below the printed identity and every mechanism.
 	for _, bumper := range current.Table.Bumpers {
-		if bumper.ID == table.MaterialStudyBumperID {
-			placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
-			r.placedSprite(window, "assets/images/bumper-patch.png", view, placement)
-			r.placedSprite(window, "assets/images/bumper-shadow.png", view, placement)
-		}
+		placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
+		r.placedSprite(window, "assets/images/bumper-patch.png", view, placement)
+	}
+	r.image(window, "assets/images/playfield-markings.png", view.offsetX, view.offsetY, view.width, view.height, 0)
+	for _, bumper := range current.Table.Bumpers {
+		placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
+		r.placedSprite(window, "assets/images/bumper-shadow.png", view, placement)
 	}
 	// Layer order: flat playfield, cast shadows, static mechanisms, dynamic
 	// mechanisms/ball, safe foreground covers, emission/effects, instrument HUD.
@@ -160,13 +163,9 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 	}
 
 	for _, bumper := range definition.Bumpers {
-		if bumper.ID == table.MaterialStudyBumperID {
-			placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
-			r.placedSprite(window, "assets/images/bumper-material.png", view, placement)
-			r.placedSprite(window, "assets/images/bumper-emission.png", view, placement)
-			continue
-		}
-		r.placedSprite(window, "assets/images/bumper.png", view, table.BumperFrame.Place(bumper.Center, bumper.Radius/table.BumperFrame.ContactRadius, 0))
+		placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
+		r.placedSprite(window, "assets/images/bumper-material.png", view, placement)
+		r.placedSprite(window, "assets/images/bumper-emission.png", view, placement)
 	}
 	for _, post := range definition.Posts {
 		r.placedSprite(window, "assets/images/post.png", view, table.PostFrame.Place(post.Center, post.Radius/table.PostFrame.ContactRadius, 0))
@@ -178,7 +177,7 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 		}
 		midpoint := target.Segment.A.Add(target.Segment.B).Mul(.5)
 		angle := math.Atan2(target.Segment.B.Y-target.Segment.A.Y, target.Segment.B.X-target.Segment.A.X) - math.Pi/2
-		// The 84-pixel housing length fits the capsule's complete contact extent.
+		// The housing fits the capsule's complete contact extent.
 		scale := (target.Segment.B.Sub(target.Segment.A).Length() + 2*target.Radius) / table.TargetFrame.ContactLength
 		r.placedSprite(window, path, view, table.TargetFrame.Place(midpoint, scale, angle))
 	}
@@ -188,8 +187,10 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 		r.placedSprite(window, "assets/images/flipper.png", view, table.FlipperFrame.Place(flipper.Pivot, scale, flipper.Angle))
 	}
 
-	plungerY := definition.Plunger.Position.Y - 52 + current.PlungerCharge*22
-	r.spriteCentered(window, "assets/images/plunger.png", view, physics.V(definition.Plunger.Position.X, plungerY), 36, 116, 0)
+	// Keep the spring foot fixed inside the well while the head retracts.
+	plungerY := definition.Plunger.Position.Y - 2 + current.PlungerCharge*8
+	plungerHeight := 40 - current.PlungerCharge*16
+	r.spriteCentered(window, "assets/images/plunger.png", view, physics.V(definition.Plunger.Position.X, plungerY), 36, plungerHeight, 0)
 	if current.Ball.Active {
 		r.placedSprite(window, "assets/images/ball.png", view, table.BallFrame.Place(current.Ball.Position, current.Ball.Radius/table.BallFrame.ContactRadius, 0))
 	}

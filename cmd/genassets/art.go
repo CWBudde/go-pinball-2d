@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/CWBudde/go-pinball-2d/internal/physics"
 	"github.com/CWBudde/go-pinball-2d/internal/table"
 )
 
@@ -21,8 +20,8 @@ var (
 )
 
 func backgroundImage() image.Image {
-	c := newCanvas(720, 1080)
-	c.verticalGradient(graphite, black)
+	c := materialCanvas(720, 1080)
+	c.verticalGradient(graphite, materialRGB(10, 15, 19))
 
 	// Subtle etched grain, with no free-floating stars or space artwork.
 	seed := rng(0x52454c4159)
@@ -31,6 +30,7 @@ func backgroundImage() image.Image {
 			c.line(x, y, x+2, y, .5, silver, .015+seed.unit()*.022)
 		}
 	}
+	c.boardDetails()
 	// Broad dark routing panels frame an open central field.
 	for _, p := range [][][2]float64{
 		{{65, 185}, {155, 95}, {280, 95}, {280, 190}, {170, 300}, {170, 600}, {110, 660}, {65, 660}},
@@ -65,15 +65,6 @@ func backgroundImage() image.Image {
 		drawRoute(c, parallel, metal, .25)
 		drawRoute(c, mirror, col, .24)
 	}
-	// Screen-printed center identity and a real switching-contact diagram.
-	c.wordmark("NEON", table.TitleOrigin.X, table.TitleOrigin.Y, 8.0, cyan)
-	c.wordmark("RELAY", table.TitleOrigin.X-4, table.TitleOrigin.Y+55, 6.4, pink)
-	c.relay(344, table.TitleOrigin.Y+116, .9, cyan)
-	for i := 0; i < 3; i++ {
-		y := 764.0 + float64(i)*23
-		c.glowLine(341, y+11, 360, y, 2, pink, .55)
-		c.glowLine(360, y, 379, y+11, 2, pink, .55)
-	}
 
 	for i := 0; i < 9; i++ {
 		y := 305.0 + float64(i)*69
@@ -83,64 +74,47 @@ func backgroundImage() image.Image {
 			c.line(643, y+6, 643, y+62, 1, metal, .45)
 		}
 	}
-	return c.finish()
+	return c.finishAlpha()
+}
+
+func playfieldMarkingsImage() image.Image {
+	c := materialCanvas(720, 1080)
+	// Screen-printed center identity and a real switching-contact diagram.
+	c.wordmark("NEON", table.TitleOrigin.X, table.TitleOrigin.Y, 8.0, cyan)
+	c.wordmark("RELAY", table.TitleOrigin.X-4, table.TitleOrigin.Y+55, 6.4, pink)
+	c.relay(344, table.TitleOrigin.Y+116, .9, cyan)
+	for i := 0; i < 3; i++ {
+		y := 764.0 + float64(i)*23
+		c.glowLine(table.PlayfieldCenter-19, y+11, table.PlayfieldCenter, y, 2, pink, .55)
+		c.glowLine(table.PlayfieldCenter, y, table.PlayfieldCenter+19, y+11, 2, pink, .55)
+	}
+
+	// Flush directional inserts identify the two real channels on either side.
+	// Their positions come from routing metadata, never a second visual layout.
+	d := table.New()
+	for i, lanes := range [][]table.Lane{d.Inlanes, d.Outlanes} {
+		col := cyan
+		if i == 1 {
+			col = gold
+		}
+		for _, lane := range lanes {
+			p := lane.Segment.A.Add(lane.Segment.B).Mul(.5)
+			c.roundedRect(p.X-8, p.Y-18, p.X+8, p.Y+18, 5, metal, .7)
+			c.roundedRect(p.X-7, p.Y-17, p.X+7, p.Y+17, 4, black, 1)
+			for _, y := range []float64{p.Y - 7, p.Y + 3} {
+				c.line(p.X-4, y, p.X, y+4, 1.5, col, .8)
+				c.line(p.X, y+4, p.X+4, y, 1.5, col, .8)
+			}
+		}
+	}
+
+	return c.finishAlpha()
 }
 
 func (c *canvas) outline(p [][2]float64, width float64, col color.NRGBA, opacity float64) {
 	for i, a := range p {
 		b := p[(i+1)%len(p)]
 		c.line(a[0], a[1], b[0], b[1], width, col, opacity)
-	}
-}
-
-func (c *canvas) rails(walls []physics.LineCollider) {
-	// Draw each material across the whole run before the next layer, so joins
-	// read as continuous rails rather than individually capped line segments.
-	for _, layer := range []struct {
-		dx, dy, extra, opacity float64
-		col                    color.NRGBA
-	}{
-		{0, 0, 5, 1, black},
-		{0, 0, 0, 1, metal},
-		{-1, -1, -3, .9, silver},
-		{0, 0, -5, 1, graphite},
-	} {
-		for _, wall := range walls {
-			a, b := wall.Segment.A, wall.Segment.B
-			c.line(a.X+layer.dx, a.Y+layer.dy, b.X+layer.dx, b.Y+layer.dy, math.Max(2, wall.Radius*2+layer.extra), layer.col, layer.opacity)
-		}
-	}
-	for _, wall := range walls {
-		a, b := wall.Segment.A, wall.Segment.B
-		c.glowLine(a.X, a.Y, b.X, b.Y, 1.2, cyan, .6)
-	}
-}
-
-func (c *canvas) plastic(p [][2]float64) {
-	inner := make([][2]float64, len(p))
-	var cx, cy float64
-	for _, v := range p {
-		cx += v[0] / float64(len(p))
-		cy += v[1] / float64(len(p))
-	}
-	for i, v := range p {
-		inner[i] = [2]float64{cx + (v[0]-cx)*.81, cy + (v[1]-cy)*.81}
-	}
-	c.polygon(p, graphite, 1)
-	c.outline(p, 17, black, 1)
-	c.outline(p, 11, pink, .65)
-	c.outline(p, 7, metal, 1)
-	c.outline(p, 4, silver, .85)
-	c.outline(p, 2, black, 1)
-	c.polygon(inner, color.NRGBA{R: 12, G: 20, B: 26, A: 255}, 1)
-	c.outline(inner, 1, cyan, .35)
-	for i, v := range inner {
-		x, y := cx+(v[0]-cx)*.65, cy+(v[1]-cy)*.65
-		c.glowLine(x, y, cx, cy+float64(i-1)*11, 1.5, cyan, .7)
-		c.ring(x, y, 3, 1.5, cyan, .8)
-	}
-	for _, v := range inner {
-		c.screw(v[0], v[1], 5)
 	}
 }
 
@@ -210,23 +184,6 @@ func ballImage() image.Image {
 	return c.finish()
 }
 
-func flipperImage() image.Image {
-	c := newCanvas(int(table.FlipperFrame.Width), int(table.FlipperFrame.Height))
-	shape := [][2]float64{{30, 13}, {149, 20}, {157, 25}, {160, 32}, {157, 40}, {149, 44}, {30, 51}}
-	c.line(30, 36, 148, 36, 36, black, .65)
-	c.polygon(shape, pink, 1)
-	c.outline(shape, 3, color.NRGBA{R: 104, G: 18, B: 49, A: 255}, 1)
-	c.circle(30, 32, 20, pink, 1)
-	face := [][2]float64{{30, 17}, {148, 24}, {154, 28}, {155, 33}, {150, 39}, {30, 46}}
-	c.polygon(face, color.NRGBA{R: 230, G: 230, B: 222, A: 255}, 1)
-	c.outline(face, 1, silver, 1)
-	c.line(46, 19, 145, 25, 2, color.NRGBA{R: 255, G: 255, B: 255, A: 255}, 1)
-	c.circle(30, 32, 17, graphite, 1)
-	c.ring(30, 32, 16, 13, silver, 1)
-	c.screw(30, 32, 10)
-	return c.finish()
-}
-
 func bumperImage() image.Image {
 	c := newCanvas(int(table.BumperFrame.Width), int(table.BumperFrame.Height))
 	c.circle(65, 69, 58, black, .55)
@@ -256,71 +213,5 @@ func bumperImage() image.Image {
 	for _, a := range []float64{math.Pi / 2, math.Pi * 7 / 6, math.Pi * 11 / 6} {
 		c.screw(64+math.Cos(a)*52, 64+math.Sin(a)*52, 4)
 	}
-	return c.finish()
-}
-
-func postImage() image.Image {
-	c := newCanvas(int(table.PostFrame.Width), int(table.PostFrame.Height))
-	c.circle(25, 27, 20, black, .6)
-	c.circle(24, 24, 19, graphite, 1)
-	c.ring(24, 24, 18, 14, metal, 1)
-	c.ring(24, 24, 14, 10, cyan, .85)
-	c.screw(24, 23, 9)
-	return c.finish()
-}
-
-func targetImage() image.Image     { return targetFace(false) }
-func targetDownImage() image.Image { return targetFace(true) }
-
-func targetFace(down bool) image.Image {
-	c := newCanvas(int(table.TargetFrame.Width), int(table.TargetFrame.Height))
-	c.roundedRect(19, 8, 49, 92, 10, black, .7)
-	c.roundedRect(18, 4, 46, 88, 8, metal, 1)
-	c.roundedRect(20, 6, 44, 86, 6, black, 1)
-	col, opacity := pink, 1.0
-	if down {
-		col, opacity = metal, .35
-	}
-	c.roundedRect(21, 12, 43, 80, 5, col, .5*opacity)
-	c.roundedRect(23, 14, 41, 78, 4, graphite, 1)
-	for i, length := range []float64{6, 13, 17, 10} {
-		y := 29.0 + float64(i)*11
-		c.glowLine(32-length/2, y, 32+length/2, y, 3, col, opacity)
-	}
-	c.line(23, 8, 41, 8, 1.5, silver, .7)
-	return c.finish()
-}
-
-func laneLightImage() image.Image    { return laneLight(true) }
-func laneLightOffImage() image.Image { return laneLight(false) }
-
-func laneLight(lit bool) image.Image {
-	c := newCanvas(48, 96)
-	c.roundedRect(8, 4, 40, 92, 15, metal, 1)
-	c.roundedRect(10, 6, 38, 90, 13, black, 1)
-	col, opacity := metal, .4
-	if lit {
-		col, opacity = cyan, 1
-	}
-	for _, y := range []float64{28, 47, 66} {
-		c.glowLine(17, y+5, 24, y-3, 3, col, opacity)
-		c.glowLine(24, y-3, 31, y+5, 3, col, opacity)
-	}
-	c.circle(24, 81, 3, gold, opacity)
-	return c.finish()
-}
-
-func plungerImage() image.Image {
-	c := newCanvas(56, 180)
-	c.roundedRect(19, 5, 37, 154, 8, black, 1)
-	c.line(28, 10, 28, 155, 8, metal, 1)
-	c.line(26, 12, 26, 153, 2, silver, .9)
-	for y := 48.0; y < 136; y += 9 {
-		c.line(17, y+3, 39, y-2, 5, black, 1)
-		c.line(17, y+2, 39, y-3, 3, silver, .9)
-	}
-	c.roundedRect(10, 144, 46, 175, 9, black, 1)
-	c.roundedRect(12, 145, 44, 172, 8, pink, .95)
-	c.line(18, 148, 38, 148, 2, silver, .8)
 	return c.finish()
 }

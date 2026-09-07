@@ -24,14 +24,20 @@ func main() {
 	height := flag.Int("height", 1080, "frame height")
 	colliders := flag.Bool("colliders", false, "overlay actual contact geometry and sensors")
 	blockout := flag.Bool("blockout", false, "render untextured layout and contact geometry")
+	selected := flag.String("frame", "", "capture only attract, ready, playing, flippers, paused, or rally")
 	flag.Parse()
-	if err := run(*out, *width, *height, *colliders, *blockout); err != nil {
+	if err := run(*out, *width, *height, *colliders, *blockout, *selected); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(out string, width, height int, colliders, blockout bool) error {
+func run(out string, width, height int, colliders, blockout bool, selected string) error {
+	switch selected {
+	case "", "attract", "ready", "playing", "flippers", "paused", "rally":
+	default:
+		return fmt.Errorf("unknown capture frame %q", selected)
+	}
 	if width < 180 || height < 270 || width > 2880 || height > 4320 {
 		return fmt.Errorf("frame dimensions must be within 180x270 and 2880x4320")
 	}
@@ -48,6 +54,9 @@ func run(out string, width, height int, colliders, blockout bool) error {
 	capture := func(name string, want game.State) error {
 		if current.State != want {
 			return fmt.Errorf("%s: engine state %s, want %s", name, current.State, want)
+		}
+		if selected != "" && name != selected {
+			return nil
 		}
 		if blockout {
 			platform.RenderLayoutFrame(window, current)
@@ -116,19 +125,22 @@ func run(out string, width, height int, colliders, blockout bool) error {
 	if err := capture("rally", game.Playing); err != nil {
 		return err
 	}
-	return captureBumperStudy(out, window, current.Table)
+	if selected == "" || selected == "rally" {
+		return captureBumperPair(out, window, current.Table)
+	}
+	return nil
 }
 
 // Crop the rendered rally pixels without rescaling or redrawing the sprites.
-// Left is the Phase 2 study, right the original upper-right bumper for context.
-func captureBumperStudy(out string, window *surface, definition *table.Definition) error {
+// Compare the upper pair in their actual surroundings at native capture scale.
+func captureBumperPair(out string, window *surface, definition *table.Definition) error {
 	width, height := window.Size()
 	scale := math.Min(float64(width)/table.Width, float64(height)/table.Height)
 	offsetX := (width - int(math.Round(table.Width*scale))) / 2
 	offsetY := (height - int(math.Round(table.Height*scale))) / 2
 	size := int(math.Round(192 * scale))
 	comparison := image.NewRGBA(image.Rect(0, 0, size*2, size))
-	for i, id := range []string{table.MaterialStudyBumperID, "bumper_right"} {
+	for i, id := range []string{"bumper_left", "bumper_right"} {
 		for _, bumper := range definition.Bumpers {
 			if bumper.ID != id {
 				continue
@@ -150,6 +162,6 @@ func captureBumperStudy(out string, window *surface, definition *table.Definitio
 	if closeErr != nil {
 		return closeErr
 	}
-	fmt.Printf("%s: material study (left), original treatment (right), %.1fx\n", path, scale)
+	fmt.Printf("%s: upper bumper pair: left / right, %.1fx\n", path, scale)
 	return nil
 }

@@ -23,8 +23,9 @@ go run ./cmd/genassets -check
 `go test ./cmd/genassets` compares decoded image pixels and exact audio bytes and
 also validates all PNG dimensions and canonical WAV headers. Images are drawn
 at 3× their final PNG size and box-filtered for deterministic antialiasing.
-The Phase 2 bumper layers ship at 2× logical resolution (6× authoring samples);
-their filter averages premultiplied colors to preserve clean transparent edges.
+The playfield layers and mechanism sprites ship at 2× logical resolution
+(6× authoring samples). Their filter averages premultiplied colors to preserve
+clean transparent edges. The ball, logo, and legacy effects retain their earlier sizes.
 Noise in the synthesized effects comes from fixed xorshift seeds.
 
 ## Palette
@@ -55,36 +56,37 @@ than the opaque background are transparent.
 
 | File | Dimensions | Purpose |
 | --- | ---: | --- |
-| `images/background.png` | 720×1080 | flat graphite circuit playfield and printed title |
-| `images/table-shadows.png` | 720×1080 | transparent static contact shadows |
-| `images/table-hardware.png` | 720×1080 | rails, routing plate, slingshot covers, and apron panels |
-| `images/table-foreground.png` | 720×1080 | cabinet perimeter, display housings, and drain lip |
+| `images/background.png` | 1440×2160 | flat graphite circuit playfield, bank routing, and seams |
+| `images/playfield-markings.png` | 1440×2160 | printed title, relay symbol, shot chevrons, and lower lane inserts |
+| `images/table-shadows.png` | 1440×2160 | transparent static contact shadows |
+| `images/table-hardware.png` | 1440×2160 | rails, routing plate, slingshot covers, and apron panels |
+| `images/table-foreground.png` | 1440×2160 | cabinet perimeter, display housings, and drain lip |
 | `images/logo.png` | 640×200 | Neon Relay circuit wordmark |
 | `images/favicon.png` | 64×64 | compact relay-mark icon |
 | `images/ball.png` | 64×64 | shaded steel pinball |
-| `images/flipper.png` | 180×64 | ivory flipper with pink rubber and steel pivot |
-| `images/bumper.png` | 128×128 | original bumper treatment, retained on right and center |
-| `images/bumper-material.png` | 384×384 | Phase 2 raised metal/rubber/glass body for the left bumper |
+| `images/flipper.png` | 360×128 | ivory blade, shaded rubber skirt, and machined pivot |
+| `images/bumper.png` | 128×128 | legacy bumper asset, no longer drawn by the game |
+| `images/bumper-material.png` | 384×384 | shared raised metal/rubber/glass body for all three bumpers |
 | `images/bumper-patch.png` | 384×384 | flat textured graphite, routed pads, and reflected LED pools |
 | `images/bumper-shadow.png` | 384×384 | directional contact shadow and soft penumbra |
 | `images/bumper-emission.png` | 384×384 | segmented diffusers, narrow LED cores, and local bloom |
-| `images/post.png` | 48×48 | steel post with cyan rubber ring |
-| `images/target.png` | 64×96 | raised pulse target face |
-| `images/target-down.png` | 64×96 | recessed, unlit target housing |
-| `images/lane-light.png` | 48×96 | illuminated rollover chevrons |
-| `images/lane-light-off.png` | 48×96 | unlit rollover insert |
-| `images/plunger.png` | 56×180 | spring plunger assembly |
+| `images/post.png` | 96×96 | machined post, rubber skirt, inset cyan cap and fastener |
+| `images/target.png` | 128×192 | raised chrome/rubber pulse target face |
+| `images/target-down.png` | 128×192 | flush, dark target socket with recessed contacts |
+| `images/lane-light.png` | 96×192 | illuminated rollover chevrons |
+| `images/lane-light-off.png` | 96×192 | unlit rollover insert |
+| `images/plunger.png` | 112×360 | polished shaft, helical spring, and rubber plunger handle |
 | `images/glow.png` | 192×192 | soft cyan-violet additive glow |
 | `images/particle.png` | 32×32 | eight-point impact spark |
 
 ## Rendering approach
 
 `cmd/genassets/art.go`, `cmd/genassets/layout.go`, and
-`cmd/genassets/bumper_material.go` draw the electronics-themed artwork.
+`cmd/genassets/bumper_material.go`, and `cmd/genassets/hardware_material.go` draw the electronics-themed artwork.
 Runtime composition follows this order:
 
-1. Flat playfield artwork and printed circuitry/title, then the bumper study patch.
-2. Bumper study shadow and static contact shadows.
+1. Flat playfield and circuitry, then all bumper patches, then printed markings.
+2. Bumper shadows and static contact shadows.
 3. Static hardware, followed by lane inserts, bumpers (body then emission), posts, and targets.
 4. Moving flippers, plunger, and ball.
 5. Foreground cabinet/display housings and the lip below the drain sensor.
@@ -95,6 +97,12 @@ curves are tessellated once in the table definition for both drawing and physics
 Regenerate assets after changing the table definition. Shared source bounds and
 anchors in `internal/table/artwork.go` keep sprites aligned with physical centers
 and flipper pivots/tips during rotation.
+
+The lower lanes, slings, and flippers are mirrored about the usable playfield
+center (x=332.5), excluding the shooter lane. Continuous return dividers separate
+each inlane from its outlane; their visible edges and shadows use the same
+physical paths. Cyan return and amber outlane markings are flush and take their
+positions from the lane definitions.
 
 Printed routing plates have no height. Apron panels occupy sealed regions outside
 the lower walls, and foreground covers stay outside live ball travel. Sprite
@@ -108,10 +116,9 @@ The visual direction follows the Neon Relay concept developed during design;
 no generated concept bitmap is embedded in the game. All shipped pixels remain
 reproducible from the authored Go geometry.
 
-## Phase 2 material treatment
+## Shared material treatment
 
-The upper-left bumper (`bumper_left`) is the material study; the right and center
-bumpers retain the earlier finish until Phase 3. A cool softbox above/left drives
+All three bumpers use the approved Phase 2 treatment. A cool softbox above/left drives
 metal highlights and a down-right shadow. Brushed chrome has narrow bright
 reflections separated by dark bands; graphite and molded rubber have broad, dim
 shading. The inset smoked-glass cap has a soft diagonal reflection and a cyan relay
@@ -131,11 +138,29 @@ are generated outputs in `assets/images/`. There are no curated raster inputs to
 preserve in this phase. Do not hand-edit generated PNGs. If later work introduces
 painted sources, store them outside `images/` and `audio/` (for example
 `assets/sources/`) and explicitly add the conversion step to the generator.
-Freshness verification currently covers 21 PNGs and seven WAVs.
+Freshness verification covers 22 PNGs and seven WAVs.
 
-The study adds four cached textures (about 148 KiB PNG total, 2.25 MiB decoded
-RGBA) and three image draws per frame relative to the previous one-sprite bumper.
-All material shading is offline; runtime uses the existing image compositor.
+Phase 3 extends the palette to rails, flippers, posts, target faces, lane inserts,
+and the plunger. `hardware_material.go` authors the reusable surfaces. Capsule
+footprint tests cover the 2× flipper, target, and post sprites; all physical geometry
+is unchanged. Static rails use the exact collider paths and radii, with inset
+chrome bands, rubber faces, captive brackets, and fasteners on the upper curves.
+Slingshot covers have smoked translucent faces, routed traces, chrome mounting
+posts, rubber skirts, and down-right shadows. Only the cabinet and drain lip render
+after the ball. Flush target sockets remain below a ball after a target drops.
+
+The spring well is recessed, with a compact moving plunger below the waiting ball.
+Its sprite shortens as the head retracts, keeping the foot fixed inside the well.
+Independent shaft/coil motion and event-driven illumination remain Phase 4. Baked flipper shading rotates with
+the blade; a moving specular treatment also belongs to that lighting phase.
+
+All shading is offline and textures are cached. The extra printed-markings layer
+prevents bumper patches from covering the title and makes those planes independent.
+The five full-table textures are 1440×2160 (about 59 MiB decoded RGBA together).
+This intentionally trades texture memory for crisp 2× captures while keeping
+static detail in five image draws. The complete PNG inventory is about 1.1 MiB.
+The shared bumper textures are reused three times, adding six draws over Phase 2;
+separating the markings adds one more. No per-pixel shading runs during play.
 
 ## Audio inventory
 
@@ -158,7 +183,8 @@ sample by sample by `cmd/genassets`.
 The design, drawing instructions, letter paths, procedural layout, and audio
 synthesis recipes were authored for Neon Relay in `cmd/genassets/main.go` and
 `cmd/genassets/art.go`, `cmd/genassets/layout.go`,
-`cmd/genassets/bumper_material.go`, and the shared table definition. The committed
+`cmd/genassets/bumper_material.go`, `cmd/genassets/hardware_material.go`, and the
+shared table definition. The committed
 binaries are direct outputs of that source and carry the same project license as
 the rest of this repository. Because generation consumes no external
 inputs, the source plus its fixed constants are the complete provenance trail.
