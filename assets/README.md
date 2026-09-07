@@ -22,8 +22,10 @@ go run ./cmd/genassets -check
 
 `go test ./cmd/genassets` compares decoded image pixels and exact audio bytes and
 also validates all PNG dimensions and canonical WAV headers. Images are drawn
-at 3× their final size and box-filtered for deterministic antialiasing. Noise in
-the synthesized effects comes from fixed xorshift seeds.
+at 3× their final PNG size and box-filtered for deterministic antialiasing.
+The Phase 2 bumper layers ship at 2× logical resolution (6× authoring samples);
+their filter averages premultiplied colors to preserve clean transparent edges.
+Noise in the synthesized effects comes from fixed xorshift seeds.
 
 ## Palette
 
@@ -61,7 +63,11 @@ than the opaque background are transparent.
 | `images/favicon.png` | 64×64 | compact relay-mark icon |
 | `images/ball.png` | 64×64 | shaded steel pinball |
 | `images/flipper.png` | 180×64 | ivory flipper with pink rubber and steel pivot |
-| `images/bumper.png` | 128×128 | smoked relay cap with segmented LEDs |
+| `images/bumper.png` | 128×128 | original bumper treatment, retained on right and center |
+| `images/bumper-material.png` | 384×384 | Phase 2 raised metal/rubber/glass body for the left bumper |
+| `images/bumper-patch.png` | 384×384 | flat textured graphite, routed pads, and reflected LED pools |
+| `images/bumper-shadow.png` | 384×384 | directional contact shadow and soft penumbra |
+| `images/bumper-emission.png` | 384×384 | segmented diffusers, narrow LED cores, and local bloom |
 | `images/post.png` | 48×48 | steel post with cyan rubber ring |
 | `images/target.png` | 64×96 | raised pulse target face |
 | `images/target-down.png` | 64×96 | recessed, unlit target housing |
@@ -73,12 +79,13 @@ than the opaque background are transparent.
 
 ## Rendering approach
 
-`cmd/genassets/art.go` and `cmd/genassets/layout.go` draw the electronics-themed
-artwork. Runtime composition follows this order:
+`cmd/genassets/art.go`, `cmd/genassets/layout.go`, and
+`cmd/genassets/bumper_material.go` draw the electronics-themed artwork.
+Runtime composition follows this order:
 
-1. Flat playfield artwork and printed circuitry/title.
-2. Static contact shadows.
-3. Static hardware, followed by lane inserts, bumpers, posts, and targets.
+1. Flat playfield artwork and printed circuitry/title, then the bumper study patch.
+2. Bumper study shadow and static contact shadows.
+3. Static hardware, followed by lane inserts, bumpers (body then emission), posts, and targets.
 4. Moving flippers, plunger, and ball.
 5. Foreground cabinet/display housings and the lip below the drain sensor.
 6. Emission/effects and the instrument HUD.
@@ -101,6 +108,35 @@ The visual direction follows the Neon Relay concept developed during design;
 no generated concept bitmap is embedded in the game. All shipped pixels remain
 reproducible from the authored Go geometry.
 
+## Phase 2 material treatment
+
+The upper-left bumper (`bumper_left`) is the material study; the right and center
+bumpers retain the earlier finish until Phase 3. A cool softbox above/left drives
+metal highlights and a down-right shadow. Brushed chrome has narrow bright
+reflections separated by dark bands; graphite and molded rubber have broad, dim
+shading. The inset smoked-glass cap has a soft diagonal reflection and a cyan relay
+schematic. Cyan LEDs occupy its upper-left sector, with pink around the rest.
+Reflections on the cylinder and small light pools on the playfield share those colors.
+
+All four layers use `BumperMaterialFrame`: 384×384 source pixels, anchor (192,192),
+contact radius 108. At the current table size they occupy 192×192 logical pixels
+around the unchanged radius-54 body. The raised cap is visually offset upward
+inside that footprint. The patch is flat; shadow and emission have no collision
+surface. All four layers render before the ball. Tests check the opaque footprint,
+transparent margins, and alpha filtering; engine crops check placement at 0.5×,
+1×, and 2×. The separate emission is an idle appearance; impact states remain Phase 4.
+
+The source art is authored Go in `cmd/genassets/bumper_material.go`; the four PNGs
+are generated outputs in `assets/images/`. There are no curated raster inputs to
+preserve in this phase. Do not hand-edit generated PNGs. If later work introduces
+painted sources, store them outside `images/` and `audio/` (for example
+`assets/sources/`) and explicitly add the conversion step to the generator.
+Freshness verification currently covers 21 PNGs and seven WAVs.
+
+The study adds four cached textures (about 148 KiB PNG total, 2.25 MiB decoded
+RGBA) and three image draws per frame relative to the previous one-sprite bumper.
+All material shading is offline; runtime uses the existing image compositor.
+
 ## Audio inventory
 
 All WAV files are mono, 44,100 Hz, signed 16-bit PCM. Oscillators, envelopes,
@@ -121,6 +157,8 @@ sample by sample by `cmd/genassets`.
 
 The design, drawing instructions, letter paths, procedural layout, and audio
 synthesis recipes were authored for Neon Relay in `cmd/genassets/main.go` and
-`cmd/genassets/art.go`, `cmd/genassets/layout.go`, and the shared table definition. The committed binaries are direct outputs of that source and carry the same project
-license as the rest of this repository. Because generation consumes no external
+`cmd/genassets/art.go`, `cmd/genassets/layout.go`,
+`cmd/genassets/bumper_material.go`, and the shared table definition. The committed
+binaries are direct outputs of that source and carry the same project license as
+the rest of this repository. Because generation consumes no external
 inputs, the source plus its fixed constants are the complete provenance trail.

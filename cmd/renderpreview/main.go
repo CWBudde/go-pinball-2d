@@ -6,7 +6,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
+	imagedraw "image/draw"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -110,5 +113,43 @@ func run(out string, width, height int, colliders, blockout bool) error {
 	if current.Score == 0 {
 		return fmt.Errorf("launch did not reach scoring features")
 	}
-	return capture("rally", game.Playing)
+	if err := capture("rally", game.Playing); err != nil {
+		return err
+	}
+	return captureBumperStudy(out, window, current.Table)
+}
+
+// Crop the rendered rally pixels without rescaling or redrawing the sprites.
+// Left is the Phase 2 study, right the original upper-right bumper for context.
+func captureBumperStudy(out string, window *surface, definition *table.Definition) error {
+	width, height := window.Size()
+	scale := math.Min(float64(width)/table.Width, float64(height)/table.Height)
+	offsetX := (width - int(math.Round(table.Width*scale))) / 2
+	offsetY := (height - int(math.Round(table.Height*scale))) / 2
+	size := int(math.Round(192 * scale))
+	comparison := image.NewRGBA(image.Rect(0, 0, size*2, size))
+	for i, id := range []string{table.MaterialStudyBumperID, "bumper_right"} {
+		for _, bumper := range definition.Bumpers {
+			if bumper.ID != id {
+				continue
+			}
+			origin := image.Pt(offsetX+int(math.Round((bumper.Center.X-96)*scale)), offsetY+int(math.Round((bumper.Center.Y-96)*scale)))
+			imagedraw.Draw(comparison, image.Rect(i*size, 0, (i+1)*size, size), window.pixels, origin, imagedraw.Src)
+		}
+	}
+	path := filepath.Join(out, "bumper-comparison.png")
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	encodeErr := png.Encode(file, comparison)
+	closeErr := file.Close()
+	if encodeErr != nil {
+		return encodeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	fmt.Printf("%s: material study (left), original treatment (right), %.1fx\n", path, scale)
+	return nil
 }

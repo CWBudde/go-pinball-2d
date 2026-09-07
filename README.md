@@ -64,6 +64,15 @@ For another output size:
 ./scripts/render-preview.sh -width 360 -height 540 -out output/preview-small
 ```
 
+Each run also saves `bumper-comparison.png`, cropped directly from the rally
+frame: the Phase 2 upper-left bumper on the left, the original upper-right bumper
+on the right. The crops retain the capture's pixel scale. Inspect the material
+study at 2× with:
+
+```sh
+./scripts/render-preview.sh -width 1440 -height 2160 -out output/preview-phase2-2x
+```
+
 The capture surface uses Go Mono for text and software image filtering, so
 font rasterization and antialiasing may differ slightly from the display backend.
 

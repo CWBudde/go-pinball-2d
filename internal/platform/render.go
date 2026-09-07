@@ -22,6 +22,10 @@ var requiredImages = []string{
 	"assets/images/ball.png",
 	"assets/images/flipper.png",
 	"assets/images/bumper.png",
+	"assets/images/bumper-material.png",
+	"assets/images/bumper-patch.png",
+	"assets/images/bumper-shadow.png",
+	"assets/images/bumper-emission.png",
 	"assets/images/post.png",
 	"assets/images/target.png",
 	"assets/images/target-down.png",
@@ -114,6 +118,14 @@ func (r *renderer) draw(window draw.Window, current *game.Game, elapsed float64,
 	}
 
 	r.image(window, "assets/images/background.png", view.offsetX, view.offsetY, view.width, view.height, 0)
+	// The material study's flat patch and shadow sit below every mechanism.
+	for _, bumper := range current.Table.Bumpers {
+		if bumper.ID == table.MaterialStudyBumperID {
+			placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
+			r.placedSprite(window, "assets/images/bumper-patch.png", view, placement)
+			r.placedSprite(window, "assets/images/bumper-shadow.png", view, placement)
+		}
+	}
 	// Layer order: flat playfield, cast shadows, static mechanisms, dynamic
 	// mechanisms/ball, safe foreground covers, emission/effects, instrument HUD.
 	r.image(window, "assets/images/table-shadows.png", view.offsetX, view.offsetY, view.width, view.height, 0)
@@ -148,6 +160,12 @@ func (r *renderer) drawTable(window draw.Window, current *game.Game, view viewpo
 	}
 
 	for _, bumper := range definition.Bumpers {
+		if bumper.ID == table.MaterialStudyBumperID {
+			placement := table.BumperMaterialFrame.Place(bumper.Center, bumper.Radius/table.BumperMaterialFrame.ContactRadius, 0)
+			r.placedSprite(window, "assets/images/bumper-material.png", view, placement)
+			r.placedSprite(window, "assets/images/bumper-emission.png", view, placement)
+			continue
+		}
 		r.placedSprite(window, "assets/images/bumper.png", view, table.BumperFrame.Place(bumper.Center, bumper.Radius/table.BumperFrame.ContactRadius, 0))
 	}
 	for _, post := range definition.Posts {

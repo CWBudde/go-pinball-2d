@@ -45,6 +45,13 @@ var (
 	TargetFrame  = SpriteFrame{Width: 64, Height: 96, Anchor: physics.V(32, 46), ContactLength: 84}
 )
 
+// BumperMaterialFrame shares a 2x canvas across the study's patch, shadow,
+// body, and emission. Only the body has height; its contact radius stays 54
+// table units. The surrounding patch and light cannot occlude a moving ball.
+var BumperMaterialFrame = SpriteFrame{Width: 384, Height: 384, Anchor: physics.V(192, 192), ContactRadius: 108}
+
+const MaterialStudyBumperID = "bumper_left"
+
 // TitleOrigin is printed on the playfield, between the upper pair and lower
 // bumper. It has no height and never occludes the ball.
 var TitleOrigin = physics.V(256, 440)

@@ -28,10 +28,10 @@ infrastructure does not mean the visual target has been reached.
 
 | Area | Current rendering | Target in the prototype |
 | --- | --- | --- |
-| Composition | Sparse upper lanes; third bumper above the title | Built-up upper arch; title between upper pair and lower bumper |
+| Composition | New upper arch, framed lanes, and title above the lower bumper | Built-up upper arch; title between upper pair and lower bumper |
 | Construction | Thin, angular rails and flat triangular plastics | Curved metal guides, raised assemblies, substantial cabinet and apron |
-| Materials | Clean outlines and simple gradients | Beveled chrome, dark rubber, smoked plastic, textured graphite |
-| Light | Bright borders with limited surface interaction | Selective LED bloom, reflected color, contact shadows and dark recesses |
+| Materials | One shaded bumper study; other mechanisms still use simple gradients | Beveled chrome, dark rubber, smoked plastic, textured graphite |
+| Light | Local reflection/shadow proof on one bumper; mostly bright borders elsewhere | Selective LED bloom, reflected color, contact shadows and dark recesses |
 | Detail | Isolated traces and small floating targets | Routed circuitry around fitted housings, brackets, fasteners and inserts |
 | Presentation | Plain score panels and overlay text | Integrated instrument displays and a consistent technical type system |
 
@@ -73,21 +73,36 @@ Phase 2 work.
 
 ## Phase 2 — prove the material treatment on one assembly
 
-- [ ] Finish one bumper and its surrounding playfield patch first: layered base,
+- [x] Finish one bumper and its surrounding playfield patch first: layered base,
   cylindrical sidewall, rubber ring, inset relay cap, screws, segmented LEDs,
   directional highlights, contact shadow, and reflected cyan/pink light.
-- [ ] Establish one lighting direction and a small material palette. Use baked
+- [x] Establish one lighting direction and a small material palette. Use baked
   shading, transparent sprites, shadow masks, and glow overlays freely; a full
   3D renderer is not required.
-- [ ] Author at sufficient resolution for a crisp 2× capture. Check alpha edges,
+- [x] Author at sufficient resolution for a crisp 2× capture. Check alpha edges,
   downscaling, physical footprint, and pivot metadata in the production renderer.
-- [ ] Keep procedural generation where useful; allow original painted or
+- [x] Keep procedural generation where useful; allow original painted or
   AI-assisted raster sources when they improve quality. Separate source art from
   generated outputs so `cmd/genassets` cannot overwrite curated work. Record
   provenance and update asset inventory/freshness checks for the chosen pipeline.
 
 **Exit:** a bumper crop at playing size reads as raised metal, rubber, and glass
 with convincing light interaction. Settle this treatment before expanding it.
+
+**Completed:** upper-left bumper with a layered chrome base, molded rubber skirt,
+reflected cylinder sidewall, recessed smoked-glass relay cap, captive screws,
+segmented LEDs, and a textured/routed playfield patch. Four transparent 2× layers
+share the unchanged physical anchor and contact radius. Lighting uses a cool
+upper-left key, down-right shadow, and selective cyan/pink emission. Other bumpers
+retain the previous finish as controls until Phase 3.
+
+**Evidence:** `output/preview-phase2/`, `output/preview-phase2-small/`,
+`output/preview-phase2-2x/`, and `output/preview-phase2-colliders/`. Each contains
+`bumper-comparison.png`: the engine's left study and right original at native
+capture scale. Footprint, transparent padding, alpha filtering, asset freshness,
+WASM tests/lint/build, and distribution checks pass. Generation remains entirely
+reproducible from `cmd/genassets/bumper_material.go`; inventory and source/output
+rules are in `assets/README.md`. Impact animation remains Phase 4.
 
 ## Phase 3 — rebuild the table as fitted hardware
 
